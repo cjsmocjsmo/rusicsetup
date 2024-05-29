@@ -23,4 +23,4 @@ cd /usr/share/rusicsetup/rusicsetup;
 
 git pull;
 
-cargo run --release -- -d default;
+cargo run --release
