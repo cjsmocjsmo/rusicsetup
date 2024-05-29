@@ -19,7 +19,7 @@ else
     touch /usr/share/rusic/rusic/db/rusic.db;
 fi
 
-cd /usr/share/rusic/rusic;
+cd /usr/share/rusicsetup/rusicsetup;
 
 git pull;
 
