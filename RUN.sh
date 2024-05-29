@@ -1,22 +1,17 @@
 #!/bin/bash
 
-if [ -d /usr/share/rusic/rusic/nfo]; then
-    rm -rf /usr/share/rusic/rusic/nfo/*;
+if [ -d /usr/share/rusicsetup/rusicsetup/nfo]; then
+    rm -rf /usr/share/rusicsetup/rusicsetup/nfo/*;
 else
-    mkdir /usr/share/rusic/rusic/nfo;
+    mkdir /usr/share/rusicsetup/rusicsetup/nfo;
 fi
 
-if [ -d /usr/share/rusic/rusic/assets]; then
-    rm -rf /usr/share/rusic/rusic/assets/*;
+if [ -d /usr/share/rusicsetup/rusicsetup/db]; then
+    rm -rf /usr/share/rusicsetup/rusicsetup/db/*;
+    touch /usr/share/rusicsetup/rusicsetup/db/rusic.db;
 else
-    mkdir /usr/share/rusic/rusic/assets;
-fi
-
-if [ -d /usr/share/rusic/rusic/db]; then
-    rm -rf /usr/share/rusic/rusic/db/*;
-else
-    mkdir /usr/share/rusic/rusic/db;
-    touch /usr/share/rusic/rusic/db/rusic.db;
+    mkdir /usr/share/rusicsetup/rusicsetup/db;
+    touch /usr/share/rusicsetup/rusicsetup/db/rusic.db;
 fi
 
 cd /usr/share/rusicsetup/rusicsetup;
