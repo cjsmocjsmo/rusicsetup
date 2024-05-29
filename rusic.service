@@ -1,0 +1,13 @@
+[Unit]
+Description=Rusic service file
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/rusic
+Restart=always
+User=root
+Group=root
+
+
+[Install]
+WantedBy=multi-user.target
