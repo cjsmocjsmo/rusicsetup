@@ -41,3 +41,7 @@ cd /usr/share/rusicsetup/rusicsetup
 #run the script
 sh RUN.sh
 ```
+
+## Warning
+
+Rusic was designed to run on your home network and not on the wider internet.  It has no authentication system so you have been warned!!!
