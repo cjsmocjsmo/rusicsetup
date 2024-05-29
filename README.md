@@ -2,18 +2,17 @@
 
 ![Project Screenshot](screenshot.png "width=450px")
 
-rusicsetup is part of the rusic-svelte and rusic trio.
+rusicsetup is part of the rusicsetup and rusic trio (rusic, rusicsetup, rusic-svelte).
+Rusic has be design to run on the raspberry pi 3 and above.
+Rusicsetup is exactly what it says it is.  It interates over your music
+collection extracts tag info, populates the sqlite3 db etc... 
 
+Rust was choosen for it's speed.  Rusicsetup takes approx 3min to go through 2100 mp3s.
 
 ## Prerequisites
 
 1. raspberrypiOS (bookworm)
 2. rust
-
-```
-
-```
-
 
 ## Usage
 
