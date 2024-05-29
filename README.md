@@ -16,11 +16,11 @@ Rust was choosen for it's speed.  Rusicsetup takes approx 3min to go through 210
 
 ## Usage
 
-Create the directory /usr/share/rusicsetup
-Adjust permissions as needed to do the next step
-Git clone this repository to /usr/share/rusicsetup/
-Edit .env as needed for your setup (pagination, address, port, etc...)
-Execute RUN.sh
+1. Create the directory /usr/share/rusicsetup
+2. Adjust permissions as needed to do the next step
+3. Git clone this repository to /usr/share/rusicsetup/
+4. Edit .env as needed for your setup (pagination, address, port, etc...)
+5. Execute RUN.sh
 
 
 ```bash
