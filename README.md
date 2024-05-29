@@ -28,11 +28,7 @@ Execute RUN.sh
 mkdir /usr/share/rusicsetup
 chmod 755 -R /usr/share/rusicsetup
 chown pipi:pipi /usr/share/rusicsetup # change pipi to meet your needs
-git clone https://github.com/cjsmocjsmo/rusic-svelte.git
+git clone https://github.com/cjsmocjsmo/rusicsetup.git
 cd /usr/share/rusicsetup/rusicsetup
-sh RUN.sh 32 0.0.1
-
-#for the rpi3
 sh RUN.sh
-
 ```
