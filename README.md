@@ -11,7 +11,7 @@ rusicsetup is part of the rusic-svelte and rusic trio.
 2. rust
 
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
 ```
 
 
@@ -25,10 +25,19 @@ Execute RUN.sh
 
 
 ```bash
+
+#insure rust is installed
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+#make the needed dirs adjust permissions
 mkdir /usr/share/rusicsetup
 chmod 755 -R /usr/share/rusicsetup
 chown pipi:pipi /usr/share/rusicsetup # change pipi to meet your needs
+
+#clone this repo
 git clone https://github.com/cjsmocjsmo/rusicsetup.git
 cd /usr/share/rusicsetup/rusicsetup
+
+#run the script
 sh RUN.sh
 ```
