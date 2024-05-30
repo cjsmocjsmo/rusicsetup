@@ -72,7 +72,7 @@ pub fn setup() -> String {
     let alids = rusic_album::unique_albumids();
     let sids = rusic_album::songids_for_albumid(alids.clone());
     let insert_sids_result = rusicdb::db_main::post_songs_for_album_to_db(sids.clone());
-    let insert_sids = match insert_sids_result {
+    let _ = match insert_sids_result {
         Ok(_) => String::from("Exit 0 insert_sids"),
         Err(_) => String::from("Exit 1 insert_sids"),
     };
@@ -85,21 +85,15 @@ pub fn setup() -> String {
         imagecount: img_count.to_string(),
     };
     let insert_stats_results = rusicdb::db_main::post_stats_to_db(stats.clone());
-    let insert_stats = match insert_stats_results {
+    let _ = match insert_stats_results {
         Ok(_) => String::from("Exit 0 insert_stats"),
         Err(_) => String::from("Exit 1 insert_stats"),
     };
-    // let _foo = fragments::create_empty_playlist("mylikes".to_string());
-    println!("mylikes has been created");
-    println!("this is stats {:?}", insert_stats);
-    println!("this is image count {:?}", img_count);
-    println!("this is mp3 count {:?}", mp3_count);
+    
     println!("\n\nFound {:?} USB devices", usb_drives.len());
-    println!("Found {:?} usb devices", usb_drives);
     println!("Processed {} Mp3 files", media_lists.0.clone().len());
     println!("Processed {} Jpg files", media_lists.1.clone().len());
     println!("Mp3 size on disk {}", human_total_size);
-    println!("insert_sids: {}", insert_sids);
     "fuck".to_string()
 }
 
