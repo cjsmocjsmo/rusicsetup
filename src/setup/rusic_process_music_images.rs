@@ -80,7 +80,6 @@ fn create_music_thumbnail(x: &String, art: String, alb: String) -> (String, Stri
     let new_fname = "/".to_string() + art.as_str() + "_-_" + alb.as_str() + ".jpg";
     let ofname = rusic_music_metadata_path + &new_fname;
     let out_fname = ofname.replace(" ", "_");
-    println!("out_fname: {:?}", out_fname);
     let server_addr = env::var("RUSIC_HTTP_ADDR").expect("$RUSIC_SERVER_ADDR is not set");
     let server_port = env::var("RUSIC_PORT").expect("$RUSIC_SERVER_PORT is not set");
     let http_path_1 = server_addr + &server_port + "/thumbnails/" + &new_fname;
