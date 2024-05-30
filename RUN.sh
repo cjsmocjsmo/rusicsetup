@@ -14,8 +14,15 @@ else
     touch /usr/share/rusicsetup/rusicsetup/db/rusic.db;
 fi
 
+if [ -d /usr/share/rusicsetup/rusicsetup/thumbnails ]; then
+    rm -rf /usr/share/rusicsetup/rusicsetup/thumbnails/*;
+else
+    mkdir /usr/share/rusicsetup/rusicsetup/thumbnails;
+fi
+
 cd /usr/share/rusicsetup/rusicsetup;
 
 git pull;
 
 cargo run --release
+
