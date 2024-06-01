@@ -120,7 +120,8 @@ impl RusicUtils {
         let myhttpd = env::var("RUSIC_HTTP_ADDR").unwrap();
         let myport = env::var("RUSIC_PORT").unwrap();
 
-        let playpath = myhttpd + &myport + "/Music/" + assend.as_str();
+        // let playpath = myhttpd + &myport + "/Music/" + assend.as_str();
+        let playpath = myhttpd + &myport + "/" + assend.as_str();
 
         playpath
     }
