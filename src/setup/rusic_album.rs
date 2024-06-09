@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Charlie J Smotherman <porthose.cjsmo.cjsmo@gmail.com
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use rusqlite::Connection;
 use serde_json;
 use std::env;

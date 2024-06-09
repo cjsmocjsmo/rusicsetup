@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Charlie J Smotherman <porthose.cjsmo.cjsmo@gmail.com
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::rusicdb::db_main;
 use crate::types;
 use filesize::PathExt;

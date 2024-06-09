@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Charlie J Smotherman <porthose.cjsmo.cjsmo@gmail.com
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use crate::setup::rusic_utils;
 use crate::setup::rusic_utils::RusicUtils;
 // use rusqlite::{Connection, Result};

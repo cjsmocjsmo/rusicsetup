@@ -1,5 +1,7 @@
-// use env_logger::{Builder, Target};
-// use std::time::Instant;
+// SPDX-FileCopyrightText: 2024 Charlie J Smotherman <porthose.cjsmo.cjsmo@gmail.com
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 use std::env;
 use std::sync::mpsc::channel;
 use threadpool::ThreadPool;

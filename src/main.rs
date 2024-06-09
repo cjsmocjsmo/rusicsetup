@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: 2024 Charlie J Smotherman <porthose.cjsmo.cjsmo@gmail.com
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+
 use env_logger::{Builder, Target};
 use std::time::Instant;
 // use clap::{Arg, Command};
