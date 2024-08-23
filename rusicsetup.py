@@ -3,33 +3,15 @@ import subprocess
 
 CWD = os.getcwd()
 
-def nfo_dir_check():
-    if os.path.exists('/usr/share/rusicsetup/rusicsetup/nfo'):
-        return True
-    else:
-        return False
-
 def rm_nfo_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/nfo'):
         subprocess.call(['rm', '-r', '/usr/share/rusicsetup/rusicsetup/nfo'])
         print('NFO files removed')
 
-def db_dir_check():
-    if os.path.exists('/usr/share/rusicsetup/rusicsetup/db'):
-        return True
-    else:
-        return False
-
 def rm_db_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/db'):
         subprocess.call(['rm', '-rf', '/usr/share/rusicsetup/rusicsetup/db'])
         print('DB files removed')
-
-def thumb_dir_check():
-    if os.path.exists('/usr/share/rusicsetup/rusicsetup/thumbs'):
-        return True
-    else:
-        return False
 
 def rm_thumb_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/thumbs'):
