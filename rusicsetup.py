@@ -9,13 +9,6 @@ def nfo_dir_check():
     else:
         return False
 
-def create_nfo_dir():
-    if not os.path.exists('/usr/share/rusicsetup/rusicsetup/nfo'):
-        os.makedirs('/usr/share/rusicsetup/rusicsetup/nfo')
-        print('NFO directory created')
-    else:
-        print('NFO directory already exists')
-
 def rm_nfo_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/nfo'):
         subprocess.call(['rm', '-r', '/usr/share/rusicsetup/rusicsetup/nfo'])
@@ -26,15 +19,6 @@ def db_dir_check():
         return True
     else:
         return False
-
-def create_db_dir():
-    if not os.path.exists('/usr/share/rusicsetup/rusicsetup/db'):
-        subprocess.call(['mkdir', '/usr/share/rusicsetup/rusicsetup/db'])
-        print('DB dir not present, creating it')
-        subprocess.call(['touch', '/usr/share/rusicsetup/rusicsetup/db/rusic.db'])
-        print('DB file created')
-    else:
-        print('DB directory already exists')
 
 def rm_db_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/db'):
@@ -47,13 +31,6 @@ def thumb_dir_check():
     else:
         return False
 
-def create_thumb_dir():
-    if not os.path.exists('/usr/share/rusicsetup/rusicsetup/thumbs'):
-        os.makedirs('/usr/share/rusicsetup/rusicsetup/thumbs')
-        print('Thumbs directory created')
-    else:
-        print('Thumbs directory already exists')
-
 def rm_thumb_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/thumbs'):
         subprocess.call(['rm', '-rf', '/usr/share/rusicsetup/rusicsetup/thumbs'])
@@ -64,10 +41,29 @@ def install_dir_check():
         return True
     else:
         return False
-    
+
+def git_pull():
+    os.chdir('/usr/share/rusicsetup/rusicsetup')
+    subprocess.call(['git', 'pull'])
+    os.chdir(CWD)
+
+def git_clone():
+    os.chdir('/usr/share/rusicsetup')
+    subprocess.call(['git', 'clone', 'https://github.com/cjsmocjsmo/rusicsetup.git'])
+    os.chdir(CWD)
+
+def run_cargo():
+    os.chdir('/usr/share/rusicsetup/rusicsetup')
+    subprocess.call(['cargo', 'run', '--release'])
+    os.chdir(CWD)
 
 if __name__ == '__main__':
     if install_dir_check():
-        create_nfo_dir()
-        create_db_dir()
-        create_thumb_dir() 
+        rm_db_dir()
+        rm_nfo_dir()
+        rm_thumb_dir()
+        git_pull()
+    else:
+        git_clone()
+
+    run_cargo()
