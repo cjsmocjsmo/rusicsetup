@@ -16,6 +16,7 @@ def create_nfo_dir():
 def rm_db_dir():
     if os.path.exists('/usr/share/rusicsetup/rusicsetup/db'):
         subprocess.call(['rm', '-rf', '/usr/share/rusicsetup/rusicsetup/db'])
+        subprocess.call(['mkdir', '/usr/share/rusicsetup/rusicsetup/db'])
         subprocess.call(['touch', '/usr/share/rusicsetup/rusicsetup/db/rusic.db'])
         print('DB files removed')
 
