@@ -23,26 +23,6 @@ pub fn unique_artistids() -> Vec<String> {
     artistids
 }
 
-// pub fn unique_artistids2() -> Vec<types::ArtArtidInfo>{
-//     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-//     let conn = Connection::open(db_path).expect("unable to open db file");
-//     let mut stmt = conn
-//         .prepare("SELECT DISTINCT artist, artistid FROM music;")
-//         .unwrap();
-//     let rows = stmt.query_map([], |row| {
-//         Ok(types::ArtArtidInfo {
-//             rusticid: row.get(1)?,
-//             artist: row.get(0)?,
-//             artistid: row.get(1)?,
-//         })
-//     }).unwrap();
-//     let mut artistids: Vec<types::ArtArtidInfo> = Vec::new();
-//     for row in rows {
-//         artistids.push(row.unwrap());
-//     }
-//     artistids
-// }
-
 pub fn albumids_for_artistid(xlist: Vec<String>) -> Vec<types::ArtistAlbums> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
     let pagination_str = env::var("RUSIC_PAGINATION").expect("RUSIC_PAGINATION not set");

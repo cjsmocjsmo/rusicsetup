@@ -26,7 +26,7 @@ pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
             index = index + 1;
             if page_count < offset {
                 page_count = page_count + 1;
-                page = page;
+                // page = page;
             } else {
                 page_count = 1;
                 page = page + 1;

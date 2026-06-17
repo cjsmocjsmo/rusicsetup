@@ -111,7 +111,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
         index = index + 1;
         if page_count < offset {
             page_count = page_count + 1;
-            page = page;
+            // page = page;
         } else {
             page_count = 1;
             page = page + 1;
@@ -145,7 +145,7 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
         index = index + 1;
         if page_count < 6 {
             page_count = page_count + 1;
-            page = page;
+            // page = page;
         } else {
             page_count = 1;
             page = page + 1;
