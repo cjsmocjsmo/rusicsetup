@@ -11,11 +11,11 @@ use walkdir::WalkDir;
 pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
     let mut musicvec = Vec::new();
     let mut musicimgvec = Vec::new();
-    let mut index = 0;
-    let mut page = 1;
-    let mut page_count = 0;
-    let ofs = env::var("RUSIC_PAGINATION").unwrap();
-    let offset: u32 = ofs.trim().parse().expect("offset conversion failed");
+    // let mut index = 0;
+    // let mut page = 1;
+    // let mut page_count = 0;
+    // let ofs = env::var("RUSIC_PAGINATION").unwrap();
+    // let offset: u32 = ofs.trim().parse().expect("offset conversion failed");
 
     for e in WalkDir::new(apath)
         .follow_links(true)
@@ -23,14 +23,14 @@ pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
         .filter_map(|e| e.ok())
     {
         if e.metadata().unwrap().is_file() {
-            index = index + 1;
-            if page_count < offset {
-                page_count = page_count + 1;
-                // page = page;
-            } else {
-                page_count = 1;
-                page = page + 1;
-            }
+            // index = index + 1;
+            // if page_count < offset {
+            //     page_count = page_count + 1;
+            //     // page = page;
+            // } else {
+            //     page_count = 1;
+            //     page = page + 1;
+            // }
             let fname = e.path().to_string_lossy().to_string();
 
             if fname.contains("Music") {

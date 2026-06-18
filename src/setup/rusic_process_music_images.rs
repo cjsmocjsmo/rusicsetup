@@ -72,7 +72,7 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> i32 {
             page: pageg.to_string(),
             httpthumbpath: http_thumb_path,
         };
-        write_music_img_to_file(music_img_info.clone(), index);
+        // write_music_img_to_file(music_img_info.clone(), index);
         db_main::post_music_img_to_db(music_img_info.clone()).expect("music image db insertion failed")
     };
 
@@ -97,16 +97,16 @@ fn create_music_thumbnail(x: &String, art: String, alb: String) -> (String, Stri
     (out_fname.to_string(), http_path)
 }
 
-fn write_music_img_to_file(miinfo: types::MusicImageInfo, index: i32) {
-    let mii = serde_json::to_string(&miinfo).unwrap();
-    let rusic_music_metadata_path = env::var("RUSIC_NFOS").expect("$RUSIC_NFOS is not set");
-    let outpath = format!(
-        "{}/Music_Image_Meta_{}.json",
-        rusic_music_metadata_path.as_str(),
-        &index
-    );
-    std::fs::write(outpath, mii.clone()).unwrap();
-}
+// fn write_music_img_to_file(miinfo: types::MusicImageInfo, index: i32) {
+//     let mii = serde_json::to_string(&miinfo).unwrap();
+//     let rusic_music_metadata_path = env::var("RUSIC_NFOS").expect("$RUSIC_NFOS is not set");
+//     let outpath = format!(
+//         "{}/Music_Image_Meta_{}.json",
+//         rusic_music_metadata_path.as_str(),
+//         &index
+//     );
+//     std::fs::write(outpath, mii.clone()).unwrap();
+// }
 
 fn convert_webp_to_jpg(x: String) -> String {
     let img = image::open(x.clone()).unwrap();

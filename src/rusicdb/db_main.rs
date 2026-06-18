@@ -1,7 +1,6 @@
 use crate::types;
 use rusqlite::{Connection, Result};
 use std::env;
-// use serde::{Deserialize, Serialize};
 
 pub fn post_playlist_to_db(pl: types::PlayList) -> Result<()> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");

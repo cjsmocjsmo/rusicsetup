@@ -236,23 +236,3 @@ pub fn create_stats() -> Result<()> {
 
     Ok(())
 }
-
-// conn.execute(
-//     "CREATE TABLE IF NOT EXISTS artistids (
-//         id INTEGER PRIMARY KEY,
-//         artist TEXT NOT NULL,
-//         artistid TEXT NOT NULL,
-//         path TEXT NOT NULL
-//     )",
-//     (),
-// )?;
-
-// conn.execute(
-//     "CREATE TABLE IF NOT EXISTS albumids (
-//         id INTEGER PRIMARY KEY,
-//         album TEXT NOT NULL,
-//         albumid TEXT NOT NULL,
-//         path TEXT NOT NULL
-//     )",
-//     (),
-// )?;
