@@ -1,4 +1,3 @@
-
 use rusqlite::{Connection, Result};
 use std::env;
 
