@@ -6,7 +6,7 @@
 use env_logger::{Builder, Target};
 use std::time::Instant;
 // use clap::{Arg, Command};
-use dotenv::dotenv;
+use dotenv;
 // pub mod envvars;
 pub mod setup;
 pub mod rusicdb;
@@ -14,7 +14,7 @@ pub mod types;
 
 fn main() -> std::io::Result<()> {
 
-    dotenv().ok();
+    dotenv::from_path("./.env").ok();
     let start = Instant::now();
     Builder::new().target(Target::Stdout).init();
 
