@@ -60,11 +60,12 @@ pub fn albumids_for_artistid(xlist: Vec<String>) -> Vec<types::ArtistAlbums> {
 }
 
 pub fn write_albums_for_artist_to_db(artistsalbumssvec: Vec<types::ArtistAlbums>) -> Result<()> {
-    for art in artistsalbumssvec {
-        let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-        let conn = Connection::open(db_path).unwrap();
+    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
+    let conn = Connection::open(db_path).unwrap();
+    let tx = conn.unchecked_transaction()?;
 
-        conn.execute(
+    for art in &artistsalbumssvec {
+        tx.execute(
             "INSERT INTO albumsforartist (
                     page,
                     artistid,
@@ -78,5 +79,5 @@ pub fn write_albums_for_artist_to_db(artistsalbumssvec: Vec<types::ArtistAlbums>
             ),
         )?;
     }
-    Ok(())
+    tx.commit()
 }
