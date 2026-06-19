@@ -258,7 +258,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
 fn run_music_img_threads(alist: Vec<String>) -> bool {
     let pool = ThreadPool::new(num_cpus::get());
-    let (tx, rx) = channel();
+    let (tx, rx) = channel::<Option<types::MusicImageInfo>>();
 
     let mut index = 0;
     let mut page = 1;
@@ -290,10 +290,84 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
     }
 
     drop(tx);
-    for t in rx.iter() {
-        // Insert this into db
-        let _ifo = t;
-        // println!("Processed Music img {:?} files", ifo);
+
+    let img_batch_size: usize = env::var("RUSIC_IMG_SQLITE_BATCH_SIZE")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|v| *v > 0)
+        .or_else(|| {
+            env::var("RUSIC_SQLITE_BATCH_SIZE")
+                .ok()
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|v| *v > 0)
+        })
+        .unwrap_or(1000);
+
+    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
+    let conn = Connection::open(db_path).expect("unable to open db file");
+    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")
+        .expect("unable to configure sqlite pragmas");
+
+    let mut img_infos = rx.into_iter().flatten();
+
+    loop {
+        let tx = conn
+            .unchecked_transaction()
+            .expect("unable to start sqlite transaction");
+        let mut wrote_rows = false;
+
+        {
+            let mut music_img_stmt = tx
+                .prepare(
+                    "INSERT OR IGNORE INTO music_images (
+                            rusicid,
+                            width,
+                            height,
+                            artist,
+                            artistid,
+                            album,
+                            albumid,
+                            filesize,
+                            fullpath,
+                            thumbpath,
+                            idx,
+                            page,
+                            httpthumbpath
+                        )
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                )
+                .expect("unable to prepare music_images insert");
+
+            for _ in 0..img_batch_size {
+                let Some(img_info) = img_infos.next() else {
+                    break;
+                };
+                wrote_rows = true;
+
+                music_img_stmt
+                    .execute((
+                        &img_info.rusicid,
+                        &img_info.width,
+                        &img_info.height,
+                        &img_info.artist,
+                        &img_info.artistid,
+                        &img_info.album,
+                        &img_info.albumid,
+                        &img_info.filesize,
+                        &img_info.fullpath,
+                        &img_info.thumbpath,
+                        &img_info.idx,
+                        &img_info.page,
+                        &img_info.httpthumbpath,
+                    ))
+                    .expect("unable to insert music_images row");
+            }
+        }
+
+        tx.commit().expect("unable to commit sqlite transaction");
+        if !wrote_rows {
+            break;
+        }
     }
 
     true
