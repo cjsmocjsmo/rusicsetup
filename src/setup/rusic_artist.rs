@@ -25,6 +25,7 @@ pub fn unique_artistids() -> Vec<String> {
 
 pub fn albumids_for_artistid(xlist: Vec<String>) -> Vec<types::ArtistAlbums> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
+    let conn = Connection::open(db_path).expect("unable to open db file");
     let pagination_str = env::var("RUSIC_PAGINATION").expect("RUSIC_PAGINATION not set");
     let pagination: i32 = pagination_str.parse().unwrap();
     let mut pge = 1;
@@ -36,7 +37,6 @@ pub fn albumids_for_artistid(xlist: Vec<String>) -> Vec<types::ArtistAlbums> {
             pge += 1;
             index = 1;
         }
-        let conn = Connection::open(db_path.clone()).expect("unable to open db file");
         let mut stmt = conn
             .prepare("SELECT DISTINCT albumid FROM music WHERE artistid = ?1")
             .unwrap();

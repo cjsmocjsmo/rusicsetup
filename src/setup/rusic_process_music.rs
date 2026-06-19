@@ -2,22 +2,20 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::rusicdb::db_album;
-use crate::rusicdb::db_artist;
-use crate::rusicdb::db_main;
 use crate::setup::rusic_utils;
 use crate::setup::rusic_utils::RusicUtils;
 use crate::types;
 use std::clone::Clone;
 use std::env;
 
-pub fn process_mp3s(x: String, index: String, page: String) -> types::MusicInfo {
+pub fn process_mp3s(x: String, index: String, page: String) -> (types::MusicInfo, types::FirstLetterInfo) {
     let fu = RusicUtils { apath: x.clone() };
     let rusic_id = rusic_utils::get_md5(x.clone());
     let art_alb = RusicUtils::split_artist_album(&fu);
     let tag = RusicUtils::get_tag_info(&fu).unwrap();
     let tag_artist = tag.0.clone();
     let tag_album = tag.1.clone();
+    let tag_song = tag.2.clone();
     let artist_id = rusic_utils::get_md5(tag.0.clone());
     let album_id = rusic_utils::get_md5(tag.1.clone());
     let img_url = create_thumb_path(art_alb.0.clone(), art_alb.1.clone());
@@ -31,25 +29,27 @@ pub fn process_mp3s(x: String, index: String, page: String) -> types::MusicInfo 
         artistid: artist_id.clone(),
         album: tag_album.clone(),
         albumid: album_id.clone(),
-        song: tag.2.clone(), // Extract the value from the Result
+        song: tag_song.clone(),
         fullpath: x.clone(),
         extension: RusicUtils::split_ext(&fu),
         idx: index.clone(),
         page: page.clone(),
         fsizeresults: RusicUtils::get_file_size(&fu).to_string(),
     };
-    let _wm = db_main::post_music_to_db(music_info.clone()).unwrap();
-    // let _wnfo = write_music_nfos_to_file(music_info.clone(), index.clone());
 
-    let _insert_first_letter = rusic_utils::gen_first_letter_db(x.clone()).unwrap();
-    let _insert_art_artid =
-        db_artist::write_art_artid_to_db(rusic_id.clone(), tag_artist.clone(), artist_id.clone())
-            .unwrap();
-    let _insert_alb_albid =
-        db_album::write_alb_albid_to_db(rusic_id.clone(), img_url.clone(), album_id.clone())
-            .unwrap();
+    let first_letter_info = types::FirstLetterInfo {
+        rusicid: rusic_id,
+        artist: tag_artist.clone(),
+        album: tag_album.clone(),
+        artistid: artist_id,
+        albumid: album_id,
+        song: tag_song.clone(),
+        artist_first_letter: tag_artist.chars().next().unwrap_or('_').to_string(),
+        album_first_letter: tag_album.chars().next().unwrap_or('_').to_string(),
+        song_first_letter: tag_song.chars().next().unwrap_or('_').to_string(),
+    };
 
-    music_info.clone()
+    (music_info, first_letter_info)
 }
 
 // fn write_music_nfos_to_file(mfo: types::MusicInfo, index: String) {

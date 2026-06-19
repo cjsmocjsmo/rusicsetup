@@ -8,6 +8,7 @@ use threadpool::ThreadPool;
 use crate::rusicdb;
 // use crate::server::fragments;
 use crate::types;
+use rusqlite::Connection;
 use std::path::Path;
 
 pub mod rusic_album;
@@ -106,25 +107,150 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
     let ofs = env::var("RUSIC_PAGINATION").unwrap();
     let offset: u32 = ofs.trim().parse().expect("offset conversion failed");
+    let batch_size: usize = env::var("RUSIC_SQLITE_BATCH_SIZE")
+        .ok()
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(1000);
 
-    for a in alist {
-        index = index + 1;
-        if page_count < offset {
-            page_count = page_count + 1;
-            // page = page;
-        } else {
-            page_count = 1;
-            page = page + 1;
+    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
+    let conn = Connection::open(db_path).expect("unable to open db file");
+    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")
+        .expect("unable to configure sqlite pragmas");
+    let mut songs = alist.into_iter();
+
+    loop {
+        let tx = conn.unchecked_transaction().expect("unable to start sqlite transaction");
+        let mut wrote_rows = false;
+
+        {
+            let mut music_stmt = tx
+                .prepare(
+                    "INSERT INTO music (
+                            rusicid,
+                            imgurl,
+                            playpath,
+                            artist,
+                            artistid,
+                            album,
+                            albumid,
+                            song,
+                            fullpath,
+                            extension,
+                            idx,
+                            page,
+                            fsizeresults
+                        )
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                )
+                .expect("unable to prepare music insert");
+
+            let mut startswith_stmt = tx
+                .prepare(
+                    "INSERT INTO startswith (
+                            rusicid,
+                            artist,
+                            album,
+                            artistid,
+                            albumid,
+                            song,
+                            artist_first_letter,
+                            album_first_letter,
+                            song_first_letter
+                        )
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                )
+                .expect("unable to prepare startswith insert");
+
+            let mut artartid_stmt = tx
+                .prepare(
+                    "INSERT INTO artartid (
+                            rusicid,
+                            artist,
+                            artistid
+                        )
+                        VALUES (?1, ?2, ?3)",
+                )
+                .expect("unable to prepare artartid insert");
+
+            let mut albalbid_stmt = tx
+                .prepare(
+                    "INSERT INTO albalbid (
+                            rusicid,
+                            imageurl,
+                            albumid
+                        )
+                        VALUES (?1, ?2, ?3)",
+                )
+                .expect("unable to prepare albalbid insert");
+
+            for _ in 0..batch_size {
+                let Some(a) = songs.next() else {
+                    break;
+                };
+                wrote_rows = true;
+
+                index += 1;
+                if page_count < offset {
+                    page_count += 1;
+                } else {
+                    page_count = 1;
+                    page += 1;
+                }
+                println!("{}", index);
+
+                let (mfi, first_letter_info) = crate::setup::rusic_process_music::process_mp3s(
+                    a.clone(),
+                    index.to_string(),
+                    page.to_string(),
+                );
+
+                music_stmt
+                    .execute((
+                        &mfi.rusicid,
+                        &mfi.imgurl,
+                        &mfi.playpath,
+                        &mfi.artist,
+                        &mfi.artistid,
+                        &mfi.album,
+                        &mfi.albumid,
+                        &mfi.song,
+                        &mfi.fullpath,
+                        &mfi.extension,
+                        &mfi.idx,
+                        &mfi.page,
+                        &mfi.fsizeresults,
+                    ))
+                    .expect("unable to insert music row");
+
+                startswith_stmt
+                    .execute((
+                        &first_letter_info.rusicid,
+                        &first_letter_info.artist,
+                        &first_letter_info.album,
+                        &first_letter_info.artistid,
+                        &first_letter_info.albumid,
+                        &first_letter_info.song,
+                        &first_letter_info.artist_first_letter,
+                        &first_letter_info.album_first_letter,
+                        &first_letter_info.song_first_letter,
+                    ))
+                    .expect("unable to insert startswith row");
+
+                artartid_stmt
+                    .execute((&mfi.rusicid, &mfi.artist, &mfi.artistid))
+                    .expect("unable to insert artartid row");
+
+                albalbid_stmt
+                    .execute((&mfi.rusicid, &mfi.imgurl, &mfi.albumid))
+                    .expect("unable to insert albalbid row");
+            }
         }
-        println!("{}", index.clone());
 
-        let _mfi = crate::setup::rusic_process_music::process_mp3s(
-            a.clone(),
-            index.to_string(),
-            page.to_string(),
-        );
-        // let foo = format!("mfi: {:?}", &mfi);
-        // println!("this is foo {}", foo);
+        tx.commit().expect("unable to commit sqlite transaction");
+        if !wrote_rows {
+            break;
+        }
     }
 
     true
