@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::rusicdb;
 use std::env;
 use std::sync::mpsc::channel;
 use threadpool::ThreadPool;
-use crate::rusicdb;
 // use crate::server::fragments;
 use crate::types;
 use rusqlite::Connection;
@@ -29,8 +29,7 @@ pub fn setup() -> String {
         media_lists = rusic_walk_dirs::walk_usb_drives(usb_drives.clone());
     }
 
-    
-    let media_lists2= rusic_walk_dirs::walk_home_dir();
+    let media_lists2 = rusic_walk_dirs::walk_home_dir();
     media_lists.0.extend(media_lists2.0);
     media_lists.1.extend(media_lists2.1);
 
@@ -92,7 +91,7 @@ pub fn setup() -> String {
         Ok(_) => String::from("Exit 0 insert_stats"),
         Err(_) => String::from("Exit 1 insert_stats"),
     };
-    
+
     println!("\n\nFound {:?} USB devices", usb_drives.len());
     println!("Processed {} Mp3 files", media_lists.0.clone().len());
     println!("Processed {} Jpg files", media_lists.1.clone().len());
@@ -120,7 +119,9 @@ fn run_music_threads(alist: Vec<String>) -> bool {
     let mut songs = alist.into_iter();
 
     loop {
-        let tx = conn.unchecked_transaction().expect("unable to start sqlite transaction");
+        let tx = conn
+            .unchecked_transaction()
+            .expect("unable to start sqlite transaction");
         let mut wrote_rows = false;
 
         {

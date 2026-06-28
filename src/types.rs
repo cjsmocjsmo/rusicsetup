@@ -50,7 +50,6 @@ pub struct AlbAlbidInfo {
     pub albumid: String,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MusicImageInfo {
     pub rusicid: String,

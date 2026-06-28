@@ -46,7 +46,7 @@ impl RusicUtils {
         let album_final = album_string.replace("_", " ");
         let artist_final = artist_string.replace("_", " ");
 
-        ( artist_final, album_final )
+        (artist_final, album_final)
     }
 
     pub fn get_tag_info(&self) -> Result<(String, String, String, String), std::io::Error> {
@@ -57,17 +57,28 @@ impl RusicUtils {
                 if !target_dir.exists() {
                     fs::create_dir_all(target_dir)?;
                 }
-                fs::rename(&self.apath, target_dir.join(Path::new(&self.apath).file_name().unwrap()))?;
-                return Err(std::io::Error::new(std::io::ErrorKind::Other, "No ID3 tag found"));
+                fs::rename(
+                    &self.apath,
+                    target_dir.join(Path::new(&self.apath).file_name().unwrap()),
+                )?;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "No ID3 tag found",
+                ));
             }
         };
-    
+
         let artist = tag.artist().expect(&self.apath);
         let album = tag.album().expect(&self.apath);
         let song = tag.title().expect(&self.apath);
         let track = tag.track().expect(&self.apath);
-    
-        Ok((artist.to_string(), album.to_string(), song.to_string(), track.to_string()))
+
+        Ok((
+            artist.to_string(),
+            album.to_string(),
+            song.to_string(),
+            track.to_string(),
+        ))
     }
 
     pub fn split_ext(&self) -> String {
@@ -236,7 +247,6 @@ pub fn mp3_total_size(media_lists: Vec<String>) -> String {
     humansum.to_string()
 }
 
-
 pub fn artist_album_count_by_alpha() {
     let mut alphabet = Vec::new();
     alphabet.push("A");
@@ -268,11 +278,11 @@ pub fn artist_album_count_by_alpha() {
 
     for letter in alphabet.clone() {
         let _artist_alpha_count = db_main::post_artist_count_by_alpha(letter.to_string());
-    };
+    }
     for letter2 in alphabet.clone() {
         let _album_alpha_count = db_main::post_album_count_by_alpha(letter2.to_string());
-    };
+    }
     for letter3 in alphabet.clone() {
         let _song_alpha_count = db_main::post_song_count_by_alpha(letter3.to_string());
-    };
+    }
 }

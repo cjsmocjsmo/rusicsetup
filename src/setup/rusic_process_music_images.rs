@@ -5,12 +5,12 @@
 use crate::setup::rusic_utils;
 use crate::setup::rusic_utils::RusicUtils;
 // use rusqlite::{Connection, Result};
+use crate::types;
 use std::clone::Clone;
 use std::env;
 use std::fs::remove_file;
 use std::path::Path;
 use webp::*;
-use crate::types;
 
 //NEED TO PROCESS FOR CONVERT PNG GIF WEBP TO JPG
 pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::MusicImageInfo> {
@@ -88,9 +88,7 @@ fn create_music_thumbnail(x: &String, art: String, alb: String) -> (String, Stri
     let http_path = http_path_1.replace(" ", "_");
     let img = image::open(x).expect("ooooh fuck it didnt open");
     let thumbnail = img.resize(200, 200, image::imageops::FilterType::Lanczos3);
-    thumbnail
-        .save(out_fname.clone())
-        .expect(&out_fname);
+    thumbnail.save(out_fname.clone()).expect(&out_fname);
 
     (out_fname.to_string(), http_path)
 }

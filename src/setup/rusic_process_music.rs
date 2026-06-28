@@ -8,7 +8,11 @@ use crate::types;
 use std::clone::Clone;
 use std::env;
 
-pub fn process_mp3s(x: String, index: String, page: String) -> (types::MusicInfo, types::FirstLetterInfo) {
+pub fn process_mp3s(
+    x: String,
+    index: String,
+    page: String,
+) -> (types::MusicInfo, types::FirstLetterInfo) {
     let fu = RusicUtils { apath: x.clone() };
     let rusic_id = rusic_utils::get_md5(x.clone());
     let art_alb = RusicUtils::split_artist_album(&fu);

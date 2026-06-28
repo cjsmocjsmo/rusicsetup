@@ -90,7 +90,6 @@ pub fn post_songs_for_album_to_db(albumsongsvec: Vec<types::AlbumSongs>) -> Resu
     let conn = Connection::open(db_path).unwrap();
     let tx = conn.unchecked_transaction()?;
     for alb in albumsongsvec {
-
         tx.execute(
             "INSERT INTO songsforalbum (
                     page,

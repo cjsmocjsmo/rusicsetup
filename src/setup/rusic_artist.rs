@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::types;
 use rusqlite::{Connection, Result};
 use serde_json;
 use std::env;
-use crate::types;
 
 pub fn unique_artistids() -> Vec<String> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
@@ -51,10 +51,9 @@ pub fn albumids_for_artistid(xlist: Vec<String>) -> Vec<types::ArtistAlbums> {
             page: pge,
             artistid: x,
             albums: vstring,
-
         };
         artists_albums_vec.push(artistalbums);
-    };
+    }
 
     artists_albums_vec
 }
@@ -72,11 +71,7 @@ pub fn write_albums_for_artist_to_db(artistsalbumssvec: Vec<types::ArtistAlbums>
                     albums
                 )
                 VALUES (?1, ?2, ?3)",
-            (
-                &art.page,
-                &art.artistid,
-                &art.albums,
-            ),
+            (&art.page, &art.artistid, &art.albums),
         )?;
     }
     tx.commit()

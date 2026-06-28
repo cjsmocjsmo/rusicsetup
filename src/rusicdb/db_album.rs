@@ -12,11 +12,7 @@ pub fn write_alb_albid_to_db(rusid: String, imageurl: String, albid: String) -> 
                 albumid
             )
             VALUES (?1, ?2, ?3)",
-        (
-            &rusid,
-            &imageurl,
-            &albid,
-        ),
+        (&rusid, &imageurl, &albid),
     )?;
 
     Ok(())

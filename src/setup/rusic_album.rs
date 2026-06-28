@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::types;
 use rusqlite::Connection;
 use serde_json;
 use std::env;
-use crate::types;
 
 pub fn unique_albumids() -> Vec<String> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");

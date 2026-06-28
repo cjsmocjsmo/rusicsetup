@@ -1,6 +1,6 @@
-use std::env;
 use crate::types;
 use rusqlite::Connection;
+use std::env;
 
 pub fn get_mylikes_oldsongs() -> (String, String) {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
