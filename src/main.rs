@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-
 use env_logger::{Builder, Target};
 use std::path::PathBuf;
 use std::time::Instant;
 // use clap::{Arg, Command};
 use dotenv;
 // pub mod envvars;
-pub mod setup;
 pub mod rusicdb;
+pub mod setup;
 pub mod types;
 
 fn load_env_file() -> (Option<PathBuf>, Vec<PathBuf>) {
@@ -41,7 +40,6 @@ fn load_env_file() -> (Option<PathBuf>, Vec<PathBuf>) {
 }
 
 fn main() -> std::io::Result<()> {
-
     let (_loaded_from, attempted_paths) = load_env_file();
     std::env::var("RUSIC_DB_PATH").unwrap_or_else(|_| {
         let attempted = attempted_paths

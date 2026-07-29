@@ -12,11 +12,7 @@ pub fn write_art_artid_to_db(rusid: String, art: String, artid: String) -> Resul
                 artistid
             )
             VALUES (?1, ?2, ?3)",
-        (
-            &rusid,
-            &art,
-            &artid,
-        ),
+        (&rusid, &art, &artid),
     )?;
 
     Ok(())

@@ -5,16 +5,15 @@
 use crate::setup::rusic_utils;
 use crate::setup::rusic_utils::RusicUtils;
 // use rusqlite::{Connection, Result};
+use crate::types;
 use std::clone::Clone;
 use std::env;
 use std::fs::remove_file;
 use std::path::Path;
 use webp::*;
-use crate::types;
-use crate::rusicdb::db_main;
 
 //NEED TO PROCESS FOR CONVERT PNG GIF WEBP TO JPG
-pub fn process_music_images(x: String, index: i32, pageg: i32) -> i32 {
+pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::MusicImageInfo> {
     let mut needs_to_be_processed = Vec::new();
     if x.ends_with("webp") {
         println!(".webp found converting to jpg: {:?}", x);
@@ -52,8 +51,8 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> i32 {
         let width_r = newdims.0.to_string();
         let height_r = newdims.1.to_string();
         let fsize_results = RusicUtils::get_file_size(&foo2).to_string();
-        let full_path = &x.to_string();
-        let tpath = create_music_thumbnail(&x, artist1.clone(), album1.clone());
+        let full_path = media.clone();
+        let tpath = create_music_thumbnail(&media, artist1.clone(), album1.clone());
         let thumb_path = tpath.0;
         let http_thumb_path = tpath.1;
 
@@ -66,17 +65,16 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> i32 {
             album: album1.clone(),
             albumid: rusic_utils::get_md5(album1.clone()),
             filesize: fsize_results,
-            fullpath: full_path.to_string(),
+            fullpath: full_path,
             thumbpath: thumb_path,
             idx: index.to_string(),
             page: pageg.to_string(),
             httpthumbpath: http_thumb_path,
         };
-        // write_music_img_to_file(music_img_info.clone(), index);
-        db_main::post_music_img_to_db(music_img_info.clone()).expect("music image db insertion failed")
-    };
+        return Some(music_img_info);
+    }
 
-    index
+    None
 }
 
 fn create_music_thumbnail(x: &String, art: String, alb: String) -> (String, String) {
@@ -90,9 +88,7 @@ fn create_music_thumbnail(x: &String, art: String, alb: String) -> (String, Stri
     let http_path = http_path_1.replace(" ", "_");
     let img = image::open(x).expect("ooooh fuck it didnt open");
     let thumbnail = img.resize(200, 200, image::imageops::FilterType::Lanczos3);
-    thumbnail
-        .save(out_fname.clone())
-        .expect(&out_fname);
+    thumbnail.save(out_fname.clone()).expect(&out_fname);
 
     (out_fname.to_string(), http_path)
 }

@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+use crate::types;
 use rusqlite::Connection;
 use serde_json;
 use std::env;
-use crate::types;
 
 pub fn unique_albumids() -> Vec<String> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
@@ -24,6 +24,7 @@ pub fn unique_albumids() -> Vec<String> {
 
 pub fn songids_for_albumid(xlist: Vec<String>) -> Vec<types::AlbumSongs> {
     let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
+    let conn = Connection::open(db_path).expect("unable to open db file");
     let pagination_str = env::var("RUSIC_PAGINATION").expect("RUSIC_PAGINATION not set");
     let pagination: i32 = pagination_str.parse().unwrap();
     let mut idx = 1;
@@ -36,7 +37,6 @@ pub fn songids_for_albumid(xlist: Vec<String>) -> Vec<types::AlbumSongs> {
             pge += 1;
             idx = 1;
         }
-        let conn = Connection::open(db_path.clone()).expect("unable to open db file");
         let mut stmt = conn
             .prepare("SELECT rusicid FROM music WHERE albumid = ?1")
             .unwrap();

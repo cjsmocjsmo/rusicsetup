@@ -88,7 +88,7 @@ pub fn walk_usb_drives(usb_list: Vec<String>) -> (Vec<String>, Vec<String>) {
 
 //     let dir_count = usb_devices.len();
 
-//     dir_count.try_into().unwrap()  
+//     dir_count.try_into().unwrap()
 // }
 
 pub fn scan_for_usb_devices() -> i32 {
@@ -105,13 +105,13 @@ pub fn scan_for_usb_devices() -> i32 {
                     let dname = dir_name.to_string();
                     usb_devices.push(dname);
                 }
-            };
+            }
         }
         Err(_) => return 0,
     }
 
     let dir_count = usb_devices.len();
-    dir_count.try_into().unwrap()  
+    dir_count.try_into().unwrap()
 }
 
 pub fn scan_usb_devices() -> Vec<String> {
@@ -126,7 +126,7 @@ pub fn scan_usb_devices() -> Vec<String> {
             let dname = dir_name.to_string();
             usb_devices.push(dname);
         }
-    };
+    }
 
     usb_devices
 }

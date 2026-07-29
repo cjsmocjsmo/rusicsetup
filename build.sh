@@ -1,3 +1,9 @@
+if [ -z "$1" ]; then
+    echo "Error: missing version argument." >&2
+    echo "Usage: ./build.sh <version>" >&2
+    exit 1
+fi
+
 if [ -f "./Cargo.toml" ]; then
     cargo build --release
     cargo build --release --target armv7-unknown-linux-gnueabihf
