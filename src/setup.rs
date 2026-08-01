@@ -33,7 +33,7 @@ pub fn setup() -> String {
     media_lists.0.extend(media_lists2.0);
     media_lists.1.extend(media_lists2.1);
 
-    let mp3_count = media_lists.0.clone().len();
+    let audio_count = media_lists.0.clone().len();
     let mut dirlist = Vec::new();
     for media in media_lists.0.iter() {
         let path = Path::new(media);
@@ -53,7 +53,7 @@ pub fn setup() -> String {
         println!("\nThere are {} directories without coverart images\n", diff);
     }
 
-    println!("{}", mp3_count.clone());
+    println!("{}", audio_count.clone());
     println!("{}", img_count.clone());
 
     //NEED ARTIST COUNT FOR ALPHA
@@ -63,7 +63,7 @@ pub fn setup() -> String {
 
     let _gen_artist_count_by_alpha = rusic_utils::artist_album_count_by_alpha();
 
-    let human_total_size = rusic_utils::mp3_total_size(media_lists.0.clone());
+    let human_total_size = rusic_utils::media_total_size(media_lists.0.clone());
 
     let _rmit = run_music_img_threads(media_lists.1.clone());
 
@@ -83,7 +83,7 @@ pub fn setup() -> String {
     let stats = types::Stats {
         artistcount: "0".to_string(),
         albumcount: "0".to_string(),
-        songcount: mp3_count.to_string(),
+        songcount: audio_count.to_string(),
         imagecount: img_count.to_string(),
     };
     let insert_stats_results = rusicdb::db_main::post_stats_to_db(stats.clone());
@@ -93,9 +93,9 @@ pub fn setup() -> String {
     };
 
     println!("\n\nFound {:?} USB devices", usb_drives.len());
-    println!("Processed {} Mp3 files", media_lists.0.clone().len());
+    println!("Processed {} audio files", media_lists.0.clone().len());
     println!("Processed {} Jpg files", media_lists.1.clone().len());
-    println!("Mp3 size on disk {}", human_total_size);
+    println!("Audio size on disk {}", human_total_size);
     "fuck".to_string()
 }
 
@@ -200,7 +200,8 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                 }
                 println!("{}", index);
 
-                let (mfi, first_letter_info) = crate::setup::rusic_process_music::process_mp3s(
+                let (mfi, first_letter_info) =
+                    crate::setup::rusic_process_music::process_audio_file(
                     a.clone(),
                     index.to_string(),
                     page.to_string(),

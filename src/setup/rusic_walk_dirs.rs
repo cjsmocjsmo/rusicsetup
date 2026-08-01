@@ -8,6 +8,15 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
+const SUPPORTED_AUDIO_FORMATS: &[&str] = &["mp3", "flac", "ogg"];
+
+fn has_extension(path: &str, extensions: &[&str]) -> bool {
+    let lowered = path.to_lowercase();
+    extensions
+        .iter()
+        .any(|ext| lowered.ends_with(&format!(".{}", ext)))
+}
+
 pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
     let mut musicvec = Vec::new();
     let mut musicimgvec = Vec::new();
@@ -34,15 +43,9 @@ pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
             let fname = e.path().to_string_lossy().to_string();
 
             if fname.contains("Music") {
-                if fname.ends_with(".mp3") {
+                if has_extension(&fname, SUPPORTED_AUDIO_FORMATS) {
                     musicvec.push(fname.clone());
-                } else if fname.ends_with(".jpg") {
-                    musicimgvec.push(fname.clone());
-                } else if fname.ends_with(".png") {
-                    musicimgvec.push(fname.clone());
-                } else if fname.ends_with(".webp") {
-                    musicimgvec.push(fname.clone());
-                } else if fname.ends_with(".jpeg") {
+                } else if has_extension(&fname, &["jpg", "png", "webp", "jpeg"]) {
                     musicimgvec.push(fname.clone());
                 } else {
                     continue;

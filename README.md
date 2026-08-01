@@ -7,7 +7,7 @@ Rusic has been designed to run on the raspberry pi 3 and above.
 Rusicsetup is exactly what it says it is, it interates over your music
 collection extracts tag info, populates the sqlite3 db etc... 
 
-Rust was choosen for it's speed.  Rusicsetup takes approx 3min to go through 2100 mp3s.
+Rust was choosen for it's speed. Rusicsetup takes approx 3min to go through 2100 audio files.
 
 ## Prerequisites
 

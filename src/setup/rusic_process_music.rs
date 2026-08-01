@@ -8,7 +8,7 @@ use crate::types;
 use std::clone::Clone;
 use std::env;
 
-pub fn process_mp3s(
+pub fn process_audio_file(
     x: String,
     index: String,
     page: String,
@@ -23,7 +23,7 @@ pub fn process_mp3s(
     let artist_id = rusic_utils::get_md5(tag.0.clone());
     let album_id = rusic_utils::get_md5(tag.1.clone());
     let img_url = create_thumb_path(art_alb.0.clone(), art_alb.1.clone());
-    let play_path = RusicUtils::create_mp3_play_path(&fu);
+    let play_path = RusicUtils::create_audio_play_path(&fu);
 
     let music_info = types::MusicInfo {
         rusicid: rusic_id.clone(),

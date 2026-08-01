@@ -5,8 +5,10 @@
 use crate::rusicdb::db_main;
 use crate::types;
 use filesize::PathExt;
-use id3::{Tag, TagLike};
 use image::{self};
+use lofty::file::TaggedFileExt;
+use lofty::prelude::Accessor;
+use lofty::probe::Probe;
 use md5::{Digest, Md5};
 use rusqlite::Result;
 use std::env;
@@ -50,28 +52,26 @@ impl RusicUtils {
     }
 
     pub fn get_tag_info(&self) -> Result<(String, String, String, String), std::io::Error> {
-        let tag = match Tag::read_from_path(&self.apath) {
-            Ok(tag) => tag,
-            Err(_) => {
-                let target_dir = Path::new("/home/pi/needs_work");
-                if !target_dir.exists() {
-                    fs::create_dir_all(target_dir)?;
-                }
-                fs::rename(
-                    &self.apath,
-                    target_dir.join(Path::new(&self.apath).file_name().unwrap()),
-                )?;
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "No ID3 tag found",
-                ));
-            }
-        };
+        let tagged_file = Probe::open(&self.apath)
+            .map_err(|e| move_to_needs_work(&self.apath, e.to_string()))?
+            .read()
+            .map_err(|e| move_to_needs_work(&self.apath, e.to_string()))?;
 
-        let artist = tag.artist().expect(&self.apath);
-        let album = tag.album().expect(&self.apath);
-        let song = tag.title().expect(&self.apath);
-        let track = tag.track().expect(&self.apath);
+        let tag = tagged_file
+            .primary_tag()
+            .or_else(|| tagged_file.first_tag())
+            .ok_or_else(|| move_to_needs_work(&self.apath, "No metadata tag found".to_string()))?;
+
+        let artist = tag
+            .artist()
+            .ok_or_else(|| move_to_needs_work(&self.apath, "Missing artist tag".to_string()))?;
+        let album = tag
+            .album()
+            .ok_or_else(|| move_to_needs_work(&self.apath, "Missing album tag".to_string()))?;
+        let song = tag
+            .title()
+            .ok_or_else(|| move_to_needs_work(&self.apath, "Missing title tag".to_string()))?;
+        let track = tag.track().unwrap_or(0);
 
         Ok((
             artist.to_string(),
@@ -105,30 +105,36 @@ impl RusicUtils {
         dims
     }
     pub fn artist_starts_with(&self) -> String {
-        let tag = Tag::read_from_path(&self.apath).expect(&self.apath);
-        let artist = tag.artist().expect(&self.apath);
+        let artist = self
+            .get_tag_info()
+            .expect(&self.apath)
+            .0;
         let first_letter = artist.chars().next().unwrap();
 
         first_letter.to_string()
     }
 
     pub fn album_starts_with(&self) -> String {
-        let tag = Tag::read_from_path(&self.apath).expect(&self.apath);
-        let album = tag.album().expect(&self.apath);
+        let album = self
+            .get_tag_info()
+            .expect(&self.apath)
+            .1;
         let first_letter = album.chars().next().unwrap();
 
         first_letter.to_string()
     }
 
     pub fn song_starts_with(&self) -> String {
-        let tag = Tag::read_from_path(&self.apath).expect(&self.apath);
-        let song = tag.title().expect(&self.apath);
+        let song = self
+            .get_tag_info()
+            .expect(&self.apath)
+            .2;
         let first_letter = song.chars().next().unwrap();
 
         first_letter.to_string()
     }
 
-    pub fn create_mp3_play_path(&self) -> String {
+    pub fn create_audio_play_path(&self) -> String {
         let psplit = self.apath.split("/").skip(3).collect::<Vec<&str>>();
         let assend = psplit.join("/");
 
@@ -231,20 +237,41 @@ pub fn convert_bytes(mut bytes: usize) -> String {
     return format!("{:.2} {}", bytes, units[i]);
 }
 
-pub fn mp3_total_size(media_lists: Vec<String>) -> String {
-    let mut mp3_total_size = Vec::new();
+pub fn media_total_size(media_lists: Vec<String>) -> String {
+    let mut total_size = Vec::new();
     for media in media_lists {
         let rus = RusicUtils {
             apath: media.clone(),
         };
         let fsize = rus.get_file_size();
         let fusize: usize = fsize.parse().unwrap();
-        mp3_total_size.push(fusize);
+        total_size.push(fusize);
     }
-    let sum = mp3_total_size.iter().sum::<usize>();
+    let sum = total_size.iter().sum::<usize>();
     let humansum = convert_bytes(sum);
 
     humansum.to_string()
+}
+
+fn move_to_needs_work(apath: &str, message: String) -> std::io::Error {
+    let target_dir = Path::new("/home/pi/needs_work");
+
+    let move_result = (|| -> Result<(), std::io::Error> {
+        if !target_dir.exists() {
+            fs::create_dir_all(target_dir)?;
+        }
+        fs::rename(apath, target_dir.join(Path::new(apath).file_name().unwrap()))?;
+        Ok(())
+    })();
+
+    if move_result.is_err() {
+        return std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("{}; additionally failed to move file to /home/pi/needs_work", message),
+        );
+    }
+
+    std::io::Error::new(std::io::ErrorKind::Other, message)
 }
 
 pub fn artist_album_count_by_alpha() {
