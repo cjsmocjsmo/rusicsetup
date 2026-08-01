@@ -166,7 +166,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
         let tx = conn
             .unchecked_transaction()
             .expect("unable to start sqlite transaction");
-            let mut wrote_rows = false;
+        let mut wrote_rows = false;
         {
             let mut music_stmt = tx
                 .prepare(
@@ -181,6 +181,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                             song,
                             fullpath,
                             extension,
+                            idx,
                             page,
                             fsizeresults
                         )
