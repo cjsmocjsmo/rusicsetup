@@ -12,11 +12,17 @@ pub fn process_audio_file(
     x: String,
     index: String,
     page: String,
-) -> (types::MusicInfo, types::FirstLetterInfo) {
+) -> Option<(types::MusicInfo, types::FirstLetterInfo)> {
     let fu = RusicUtils { apath: x.clone() };
     let rusic_id = rusic_utils::get_md5(x.clone());
     let art_alb = RusicUtils::split_artist_album(&fu);
-    let tag = RusicUtils::get_tag_info(&fu).unwrap();
+    let tag = match RusicUtils::get_tag_info(&fu) {
+        Ok(tag) => tag,
+        Err(err) => {
+            eprintln!("Skipping audio file {}: {}", x, err);
+            return None;
+        }
+    };
     let tag_artist = tag.0.clone();
     let tag_album = tag.1.clone();
     let tag_song = tag.2.clone();
@@ -53,7 +59,7 @@ pub fn process_audio_file(
         song_first_letter: tag_song.chars().next().unwrap_or('_').to_string(),
     };
 
-    (music_info, first_letter_info)
+    Some((music_info, first_letter_info))
 }
 
 // fn write_music_nfos_to_file(mfo: types::MusicInfo, index: String) {

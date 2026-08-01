@@ -200,12 +200,15 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                 }
                 println!("{}", index);
 
-                let (mfi, first_letter_info) =
+                let Some((mfi, first_letter_info)) =
                     crate::setup::rusic_process_music::process_audio_file(
-                    a.clone(),
-                    index.to_string(),
-                    page.to_string(),
-                );
+                        a.clone(),
+                        index.to_string(),
+                        page.to_string(),
+                    )
+                else {
+                    continue;
+                };
 
                 music_stmt
                     .execute((
