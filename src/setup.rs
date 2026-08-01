@@ -5,6 +5,7 @@
 use crate::rusicdb;
 use std::env;
 use std::sync::mpsc::channel;
+use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 // use crate::server::fragments;
 use crate::types;
@@ -17,6 +18,45 @@ pub mod rusic_process_music;
 pub mod rusic_process_music_images;
 pub mod rusic_utils;
 pub mod rusic_walk_dirs;
+
+fn health_check_interval() -> Option<Duration> {
+    let secs = env::var("RUSIC_HEALTHCHECK_SECS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(30);
+
+    if secs == 0 {
+        None
+    } else {
+        Some(Duration::from_secs(secs))
+    }
+}
+
+fn maybe_print_health_check(
+    stage: &str,
+    processed: usize,
+    total: usize,
+    started_at: Instant,
+    last_report: &mut Instant,
+    interval: Option<Duration>,
+) {
+    let Some(interval) = interval else {
+        return;
+    };
+
+    if last_report.elapsed() < interval {
+        return;
+    }
+
+    println!(
+        "Health check [{}]: processed {}/{} items in {}s",
+        stage,
+        processed,
+        total,
+        started_at.elapsed().as_secs()
+    );
+    *last_report = Instant::now();
+}
 
 pub fn setup() -> String {
     let _create_tables = rusicdb::db_tables::create_tables();
@@ -100,9 +140,13 @@ pub fn setup() -> String {
 }
 
 fn run_music_threads(alist: Vec<String>) -> bool {
+    let total_songs = alist.len();
     let mut index = 0;
     let mut page = 1;
     let mut page_count = 0;
+    let started_at = Instant::now();
+    let mut last_report = started_at;
+    let health_check_interval = health_check_interval();
 
     let ofs = env::var("RUSIC_PAGINATION").unwrap();
     let offset: u32 = ofs.trim().parse().expect("offset conversion failed");
@@ -122,12 +166,11 @@ fn run_music_threads(alist: Vec<String>) -> bool {
         let tx = conn
             .unchecked_transaction()
             .expect("unable to start sqlite transaction");
-        let mut wrote_rows = false;
-
+            let mut wrote_rows = false;
         {
             let mut music_stmt = tx
                 .prepare(
-                    "INSERT INTO music (
+                    "INSERT OR IGNORE INTO music (
                             rusicid,
                             imgurl,
                             playpath,
@@ -138,7 +181,6 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                             song,
                             fullpath,
                             extension,
-                            idx,
                             page,
                             fsizeresults
                         )
@@ -148,7 +190,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
             let mut startswith_stmt = tx
                 .prepare(
-                    "INSERT INTO startswith (
+                    "INSERT OR IGNORE INTO startswith (
                             rusicid,
                             artist,
                             album,
@@ -165,7 +207,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
             let mut artartid_stmt = tx
                 .prepare(
-                    "INSERT INTO artartid (
+                    "INSERT OR IGNORE INTO artartid (
                             rusicid,
                             artist,
                             artistid
@@ -176,7 +218,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
             let mut albalbid_stmt = tx
                 .prepare(
-                    "INSERT INTO albalbid (
+                    "INSERT OR IGNORE INTO albalbid (
                             rusicid,
                             imageurl,
                             albumid
@@ -198,7 +240,14 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                     page_count = 1;
                     page += 1;
                 }
-                println!("{}", index);
+                maybe_print_health_check(
+                    "audio scan",
+                    index,
+                    total_songs,
+                    started_at,
+                    &mut last_report,
+                    health_check_interval,
+                );
 
                 let Some((mfi, first_letter_info)) =
                     crate::setup::rusic_process_music::process_audio_file(
@@ -210,7 +259,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                     continue;
                 };
 
-                music_stmt
+                let inserted_music_rows = music_stmt
                     .execute((
                         &mfi.rusicid,
                         &mfi.imgurl,
@@ -226,7 +275,20 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                         &mfi.page,
                         &mfi.fsizeresults,
                     ))
-                    .expect("unable to insert music row");
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "unable to insert music row for {} ({}) with rusicid {}: {}",
+                            mfi.fullpath, mfi.song, mfi.rusicid, err
+                        )
+                    });
+
+                if inserted_music_rows == 0 {
+                    eprintln!(
+                        "Skipping duplicate music row for {} with rusicid {}",
+                        mfi.fullpath, mfi.rusicid
+                    );
+                    continue;
+                }
 
                 startswith_stmt
                     .execute((
@@ -265,9 +327,13 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
     let pool = ThreadPool::new(num_cpus::get());
     let (tx, rx) = channel::<Option<types::MusicImageInfo>>();
 
-    let mut index = 0;
-    let mut page = 1;
-    let mut page_count = 0;
+    let total_images = alist.len();
+    let mut index: i32 = 0;
+    let mut page: i32 = 1;
+    let mut page_count: i32 = 0;
+    let started_at = Instant::now();
+    let mut last_report = started_at;
+    let health_check_interval = health_check_interval();
 
     // let ofs = env::var("RUSIC_PAGINATION").unwrap();
     // let offset: u32 = ofs.trim().parse().expect("offset conversion failed");
@@ -282,7 +348,14 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
             page = page + 1;
         }
 
-        println!("{}", index.clone());
+        maybe_print_health_check(
+            "image scan",
+            index as usize,
+            total_images,
+            started_at,
+            &mut last_report,
+            health_check_interval,
+        );
 
         if i.contains("Music") {
             let tx = tx.clone();

@@ -65,10 +65,10 @@ pub fn walk_usb_drives(usb_list: Vec<String>) -> (Vec<String>, Vec<String>) {
     for usb in usb_list {
         let media = rusic_walk_dirs::walk_additional_dir(usb);
         for m in media.0 {
-            add_media_img_list.push(m);
+            add_music_list.push(m);
         }
         for z in media.1 {
-            add_music_list.push(z);
+            add_media_img_list.push(z);
         }
     }
 
