@@ -53,6 +53,10 @@ fn main() -> std::io::Result<()> {
         )
     });
 
+    let tag_issues_log_path = std::env::var("RUSIC_TAG_ISSUES_LOG")
+        .unwrap_or_else(|_| "/home/pi/needs_work/tag_issues.log".to_string());
+    eprintln!("Tag issues log: {}", tag_issues_log_path);
+
     let start = Instant::now();
     Builder::new().target(Target::Stdout).init();
 

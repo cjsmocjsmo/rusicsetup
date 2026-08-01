@@ -14,8 +14,10 @@ use rusqlite::Result;
 use std::env;
 use std::fs;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
 pub struct RusicUtils {
@@ -95,8 +97,13 @@ impl RusicUtils {
 
     pub fn get_file_size(&self) -> String {
         let path = Path::new(&self.apath);
-
-        path.size_on_disk().unwrap().to_string()
+        match path.size_on_disk() {
+            Ok(size) => size.to_string(),
+            Err(err) => {
+                eprintln!("Unable to read file size for {}: {}", self.apath, err);
+                "0".to_string()
+            }
+        }
     }
 
     pub fn get_dims(&self) -> (u32, u32) {
@@ -105,33 +112,33 @@ impl RusicUtils {
         dims
     }
     pub fn artist_starts_with(&self) -> String {
-        let artist = self
-            .get_tag_info()
-            .expect(&self.apath)
-            .0;
-        let first_letter = artist.chars().next().unwrap();
-
-        first_letter.to_string()
+        match self.get_tag_info() {
+            Ok(tag) => tag.0.chars().next().unwrap_or('_').to_string(),
+            Err(err) => {
+                eprintln!("Unable to read artist tag for {}: {}", self.apath, err);
+                "_".to_string()
+            }
+        }
     }
 
     pub fn album_starts_with(&self) -> String {
-        let album = self
-            .get_tag_info()
-            .expect(&self.apath)
-            .1;
-        let first_letter = album.chars().next().unwrap();
-
-        first_letter.to_string()
+        match self.get_tag_info() {
+            Ok(tag) => tag.1.chars().next().unwrap_or('_').to_string(),
+            Err(err) => {
+                eprintln!("Unable to read album tag for {}: {}", self.apath, err);
+                "_".to_string()
+            }
+        }
     }
 
     pub fn song_starts_with(&self) -> String {
-        let song = self
-            .get_tag_info()
-            .expect(&self.apath)
-            .2;
-        let first_letter = song.chars().next().unwrap();
-
-        first_letter.to_string()
+        match self.get_tag_info() {
+            Ok(tag) => tag.2.chars().next().unwrap_or('_').to_string(),
+            Err(err) => {
+                eprintln!("Unable to read song tag for {}: {}", self.apath, err);
+                "_".to_string()
+            }
+        }
     }
 
     pub fn create_audio_play_path(&self) -> String {
@@ -209,7 +216,13 @@ pub fn gen_first_letter_db(media: String) -> Result<()> {
     let rus = RusicUtils {
         apath: media.clone(),
     };
-    let tags = rus.get_tag_info().unwrap();
+    let tags = match rus.get_tag_info() {
+        Ok(tags) => tags,
+        Err(err) => {
+            eprintln!("Skipping first-letter generation for {}: {}", media, err);
+            return Ok(());
+        }
+    };
 
     let first_letter_info = types::FirstLetterInfo {
         rusicid: get_md5(media.clone()),
@@ -222,7 +235,7 @@ pub fn gen_first_letter_db(media: String) -> Result<()> {
         album_first_letter: rus.album_starts_with(),
         song_first_letter: rus.song_starts_with(),
     };
-    let _insertfirsletter = db_main::post_first_letter(first_letter_info).unwrap();
+    db_main::post_first_letter(first_letter_info)?;
 
     Ok(())
 }
@@ -244,7 +257,7 @@ pub fn media_total_size(media_lists: Vec<String>) -> String {
             apath: media.clone(),
         };
         let fsize = rus.get_file_size();
-        let fusize: usize = fsize.parse().unwrap();
+        let fusize: usize = fsize.parse().unwrap_or(0);
         total_size.push(fusize);
     }
     let sum = total_size.iter().sum::<usize>();
@@ -255,6 +268,7 @@ pub fn media_total_size(media_lists: Vec<String>) -> String {
 
 fn move_to_needs_work(apath: &str, message: String) -> std::io::Error {
     let target_dir = Path::new("/home/pi/needs_work");
+    log_tag_issue(apath, &message);
 
     let move_result = (|| -> Result<(), std::io::Error> {
         if !target_dir.exists() {
@@ -265,6 +279,10 @@ fn move_to_needs_work(apath: &str, message: String) -> std::io::Error {
     })();
 
     if move_result.is_err() {
+        log_tag_issue(
+            apath,
+            "Failed to move file to /home/pi/needs_work after tag error",
+        );
         return std::io::Error::new(
             std::io::ErrorKind::Other,
             format!("{}; additionally failed to move file to /home/pi/needs_work", message),
@@ -272,6 +290,44 @@ fn move_to_needs_work(apath: &str, message: String) -> std::io::Error {
     }
 
     std::io::Error::new(std::io::ErrorKind::Other, message)
+}
+
+fn log_tag_issue(apath: &str, message: &str) {
+    let log_path = env::var("RUSIC_TAG_ISSUES_LOG")
+        .unwrap_or_else(|_| "/home/pi/needs_work/tag_issues.log".to_string());
+    let log_file_path = Path::new(&log_path);
+
+    if let Some(parent) = log_file_path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            eprintln!(
+                "Unable to create tag issue log directory {}: {}",
+                parent.display(),
+                err
+            );
+            return;
+        }
+    }
+
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    let line = format!("{} | {} | {}\n", ts, apath, message);
+    match OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_file_path)
+    {
+        Ok(mut file) => {
+            if let Err(err) = file.write_all(line.as_bytes()) {
+                eprintln!("Unable to write tag issue log {}: {}", log_path, err);
+            }
+        }
+        Err(err) => {
+            eprintln!("Unable to open tag issue log {}: {}", log_path, err);
+        }
+    }
 }
 
 pub fn artist_album_count_by_alpha() {
