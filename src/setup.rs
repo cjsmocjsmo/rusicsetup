@@ -103,6 +103,30 @@ fn write_missing_coverart_report(missing_dirs: &[String]) -> String {
     report_path
 }
 
+fn print_directory_list(header: &str, dirs: &[String]) {
+    println!("{}", header);
+    if dirs.is_empty() {
+        println!("- none");
+        return;
+    }
+
+    for dir in dirs {
+        println!("- {}", dir);
+    }
+}
+
+fn print_directory_count_list(header: &str, dirs: &[(String, usize)]) {
+    println!("{}", header);
+    if dirs.is_empty() {
+        println!("- none");
+        return;
+    }
+
+    for (dir, count) in dirs {
+        println!("- {} ({} images)", dir, count);
+    }
+}
+
 pub fn setup() -> String {
     let usb_drive_count = rusic_walk_dirs::scan_for_usb_devices();
     let mut usb_drives: Vec<String> = Vec::new();
@@ -136,7 +160,9 @@ pub fn setup() -> String {
     missing_coverart_dirs.sort();
 
     let covered_audio_dir_count = audio_dirs.intersection(&image_dirs).count();
-    let orphan_coverart_dir_count = image_dirs.difference(&audio_dirs).count();
+    let mut orphan_coverart_dirs: Vec<String> = image_dirs.difference(&audio_dirs).cloned().collect();
+    orphan_coverart_dirs.sort();
+    let orphan_coverart_dir_count = orphan_coverart_dirs.len();
 
     let mut image_file_count_by_dir: HashMap<String, usize> = HashMap::new();
     for img_path in &media_lists.1 {
@@ -144,10 +170,14 @@ pub fn setup() -> String {
         *image_file_count_by_dir.entry(dir).or_insert(0) += 1;
     }
 
-    let dirs_with_multiple_coverart = image_file_count_by_dir
-        .values()
-        .filter(|count| **count > 1)
-        .count();
+    let mut multi_coverart_dirs: Vec<(String, usize)> = image_file_count_by_dir
+        .iter()
+        .filter(|(_, count)| **count > 1)
+        .map(|(dir, count)| (dir.clone(), *count))
+        .collect();
+    multi_coverart_dirs.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let dirs_with_multiple_coverart = multi_coverart_dirs.len();
 
     println!("Found {} audio directories", audio_dirs.len());
     println!("Found {} coverart image files", img_count);
@@ -168,20 +198,18 @@ pub fn setup() -> String {
     let report_path = write_missing_coverart_report(&missing_coverart_dirs);
     println!("Missing coverart report path: {}", report_path);
 
-    if !missing_coverart_dirs.is_empty() {
-        let print_limit = env::var("RUSIC_MISSING_COVERART_PRINT_LIMIT")
-            .ok()
-            .and_then(|v| v.trim().parse::<usize>().ok())
-            .unwrap_or(25);
-
-        println!(
-            "Showing first {} missing coverart directories:",
-            missing_coverart_dirs.len().min(print_limit)
-        );
-        for dir in missing_coverart_dirs.iter().take(print_limit) {
-            println!("- {}", dir);
-        }
-    }
+    print_directory_list(
+        "Directories without coverart images:",
+        &missing_coverart_dirs,
+    );
+    print_directory_count_list(
+        "Directories with multiple coverart images:",
+        &multi_coverart_dirs,
+    );
+    print_directory_list(
+        "Coverart directories without audio files:",
+        &orphan_coverart_dirs,
+    );
 
     if env_var_truthy("RUSIC_REPORT_ONLY") {
         println!("RUSIC_REPORT_ONLY enabled: scan/report completed, skipping DB and image processing");
