@@ -4,6 +4,8 @@
 
 use crate::rusicdb;
 use std::env;
+use std::fs;
+use std::collections::{HashMap, HashSet};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
@@ -58,9 +60,50 @@ fn maybe_print_health_check(
     *last_report = Instant::now();
 }
 
-pub fn setup() -> String {
-    let _create_tables = rusicdb::db_tables::create_tables();
+fn env_var_truthy(name: &str) -> bool {
+    env::var(name)
+        .ok()
+        .map(|v| {
+            matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
 
+fn parent_dir_string(path: &str) -> String {
+    Path::new(path)
+        .parent()
+        .unwrap_or(Path::new("."))
+        .to_string_lossy()
+        .to_string()
+}
+
+fn write_missing_coverart_report(missing_dirs: &[String]) -> String {
+    let report_path = env::var("RUSIC_MISSING_COVERART_REPORT_PATH")
+        .unwrap_or_else(|_| "missing_coverart_dirs.txt".to_string());
+
+    let mut report_lines = Vec::new();
+    report_lines.push(format!("Missing coverart directories: {}", missing_dirs.len()));
+    report_lines.push(String::new());
+
+    for dir in missing_dirs {
+        report_lines.push(dir.clone());
+    }
+
+    let payload = report_lines.join("\n");
+    if let Err(err) = fs::write(&report_path, payload) {
+        eprintln!(
+            "Failed to write missing coverart report {}: {}",
+            report_path, err
+        );
+    }
+
+    report_path
+}
+
+pub fn setup() -> String {
     let usb_drive_count = rusic_walk_dirs::scan_for_usb_devices();
     let mut usb_drives: Vec<String> = Vec::new();
     let mut media_lists = (Vec::new(), Vec::new());
@@ -73,28 +116,82 @@ pub fn setup() -> String {
     media_lists.0.extend(media_lists2.0);
     media_lists.1.extend(media_lists2.1);
 
-    let audio_count = media_lists.0.clone().len();
-    let mut dirlist = Vec::new();
-    for media in media_lists.0.iter() {
-        let path = Path::new(media);
-        let dir = path.parent().unwrap_or(Path::new("."));
-        if !dirlist.contains(&dir) {
-            dirlist.push(dir);
+    let audio_count = media_lists.0.len();
+    let img_count = media_lists.1.len();
+
+    let audio_dirs: HashSet<String> = media_lists
+        .0
+        .iter()
+        .map(|media| parent_dir_string(media))
+        .collect();
+
+    let image_dirs: HashSet<String> = media_lists
+        .1
+        .iter()
+        .map(|media| parent_dir_string(media))
+        .collect();
+
+    let mut missing_coverart_dirs: Vec<String> =
+        audio_dirs.difference(&image_dirs).cloned().collect();
+    missing_coverart_dirs.sort();
+
+    let covered_audio_dir_count = audio_dirs.intersection(&image_dirs).count();
+    let orphan_coverart_dir_count = image_dirs.difference(&audio_dirs).count();
+
+    let mut image_file_count_by_dir: HashMap<String, usize> = HashMap::new();
+    for img_path in &media_lists.1 {
+        let dir = parent_dir_string(img_path);
+        *image_file_count_by_dir.entry(dir).or_insert(0) += 1;
+    }
+
+    let dirs_with_multiple_coverart = image_file_count_by_dir
+        .values()
+        .filter(|count| **count > 1)
+        .count();
+
+    println!("Found {} audio directories", audio_dirs.len());
+    println!("Found {} coverart image files", img_count);
+    println!("Found {} directories with coverart", covered_audio_dir_count);
+    println!(
+        "There are {} directories without coverart images",
+        missing_coverart_dirs.len()
+    );
+    println!(
+        "There are {} directories with multiple coverart images",
+        dirs_with_multiple_coverart
+    );
+    println!(
+        "There are {} coverart directories without audio files",
+        orphan_coverart_dir_count
+    );
+
+    let report_path = write_missing_coverart_report(&missing_coverart_dirs);
+    println!("Missing coverart report path: {}", report_path);
+
+    if !missing_coverart_dirs.is_empty() {
+        let print_limit = env::var("RUSIC_MISSING_COVERART_PRINT_LIMIT")
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .unwrap_or(25);
+
+        println!(
+            "Showing first {} missing coverart directories:",
+            missing_coverart_dirs.len().min(print_limit)
+        );
+        for dir in missing_coverart_dirs.iter().take(print_limit) {
+            println!("- {}", dir);
         }
     }
 
-    let img_count = media_lists.1.clone().len();
-    if dirlist.len() != img_count {
-        let diff = img_count - dirlist.len();
-        let com1 = format!("Found {} directories", dirlist.len());
-        let com2 = format!("Found {} coverart images", img_count);
-        println!("{}", com1);
-        println!("{}", com2);
-        println!("\nThere are {} directories without coverart images\n", diff);
+    if env_var_truthy("RUSIC_REPORT_ONLY") {
+        println!("RUSIC_REPORT_ONLY enabled: scan/report completed, skipping DB and image processing");
+        return "report-only".to_string();
     }
 
-    println!("{}", audio_count.clone());
-    println!("{}", img_count.clone());
+    let _create_tables = rusicdb::db_tables::create_tables();
+
+    println!("{}", audio_count);
+    println!("{}", img_count);
 
     //NEED ARTIST COUNT FOR ALPHA
     //NEED ALBUM COUNT FOR ALPHA

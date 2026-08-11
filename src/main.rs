@@ -40,6 +40,30 @@ fn load_env_file() -> (Option<PathBuf>, Vec<PathBuf>) {
 }
 
 fn main() -> std::io::Result<()> {
+    let mut report_only_cli = false;
+    let mut show_help = false;
+
+    for arg in std::env::args().skip(1) {
+        match arg.as_str() {
+            "--report-only" => report_only_cli = true,
+            "--help" | "-h" => show_help = true,
+            _ => {
+                eprintln!("Ignoring unknown argument: {}", arg);
+            }
+        }
+    }
+
+    if show_help {
+        println!("Usage: rusicsetup [--report-only]");
+        println!("  --report-only    scan media and generate missing-coverart report only");
+        return Ok(());
+    }
+
+    if report_only_cli {
+        std::env::set_var("RUSIC_REPORT_ONLY", "true");
+        eprintln!("CLI flag enabled: report-only mode");
+    }
+
     let (_loaded_from, attempted_paths) = load_env_file();
     std::env::var("RUSIC_DB_PATH").unwrap_or_else(|_| {
         let attempted = attempted_paths
