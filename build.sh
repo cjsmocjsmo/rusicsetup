@@ -16,6 +16,16 @@ ARM64=./target/release/rusicsetup
 ARM32=./target/armv7-unknown-linux-gnueabihf/release/rusicsetup
 ENV=./.env
 
+if [ -f "../rusic/setup/rusicsetup-rpi4-*" ]; then
+    echo "Removing existing ARM64 binary from setup directory..."
+    rm ../rusic/setup/rusicsetup-rpi4-*
+fi
+
+if [ -f "../rusic/setup/rusicsetup-rpi3b-*" ]; then
+    echo "Removing existing ARM32 binary from setup directory..."
+    rm ../rusic/setup/rusicsetup-rpi3b-*
+fi
+
 if [ -f "$ARM64" ]; then
     echo "Copying ARM64 binary to current directory..."
     cp "$ARM64" ./rusicsetup-rpi4-"$1"
