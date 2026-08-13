@@ -142,13 +142,15 @@ impl RusicUtils {
     }
 
     pub fn create_audio_play_path(&self) -> String {
-        let psplit = self.apath.split("/").skip(3).collect::<Vec<&str>>();
-        let assend = psplit.join("/");
+        let assend = self
+            .apath
+            .split_once("/Music/")
+            .map(|(_, music_path)| format!("Music/{}", music_path))
+            .unwrap_or_else(|| self.apath.trim_start_matches('/').to_string());
 
         let myhttpd = env::var("RUSIC_HTTP_ADDR").unwrap();
         let myport = env::var("RUSIC_PORT").unwrap();
 
-        // let playpath = myhttpd + &myport + "/Music/" + assend.as_str();
         let playpath = myhttpd + &myport + "/" + assend.as_str();
 
         playpath
