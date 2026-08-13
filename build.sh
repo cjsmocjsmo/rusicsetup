@@ -26,6 +26,11 @@ if [ -f "../rusic/setup/rusicsetup-rpi3b-*" ]; then
     rm ../rusic/setup/rusicsetup-rpi3b-*
 fi
 
+if [ -f "../rusic/setup/.env" ]; then
+    echo "Removing existing .env file from setup directory..."
+    rm ../rusic/setup/.env
+fi
+
 if [ -f "$ARM64" ]; then
     echo "Copying ARM64 binary to current directory..."
     cp "$ARM64" ./rusicsetup-rpi4-"$1"
