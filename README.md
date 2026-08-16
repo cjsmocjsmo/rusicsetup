@@ -13,6 +13,7 @@ Rust was choosen for it's speed. Rusicsetup takes approx 3min to go through 2100
 
 1. raspberrypiOS (bookworm)
 2. rust
+3. ffprobe (provided by FFmpeg)
 
 Rusicsetup scans the $Home/Music directory, it will also scan for any USB devices found in /media. Please put your music collection is in any of these locations.
 

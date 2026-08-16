@@ -23,6 +23,13 @@ pub fn process_audio_file(
             return None;
         }
     };
+    let playtime = match rusic_utils::calc_playtime(&x) {
+        Ok(playtime) => playtime,
+        Err(err) => {
+            eprintln!("Skipping audio file {}: {}", x, err);
+            return None;
+        }
+    };
     let tag_artist = tag.0.clone();
     let tag_album = tag.1.clone();
     let tag_song = tag.2.clone();
@@ -45,6 +52,7 @@ pub fn process_audio_file(
         idx: index.clone(),
         page: page.clone(),
         fsizeresults: RusicUtils::get_file_size(&fu).to_string(),
+        playtime,
     };
 
     let first_letter_info = types::FirstLetterInfo {

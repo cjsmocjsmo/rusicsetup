@@ -82,6 +82,7 @@ pub struct MusicInfo {
     pub idx: String,
     pub page: String,
     pub fsizeresults: String,
+    pub playtime: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

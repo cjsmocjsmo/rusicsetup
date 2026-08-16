@@ -17,6 +17,7 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
@@ -164,6 +165,50 @@ pub fn get_md5(z: String) -> String {
     let foo = format!("{:x}", a_id);
 
     foo
+}
+
+pub fn calc_playtime(path: &str) -> Result<String, std::io::Error> {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "csv=p=0",
+        ])
+        .arg(path)
+        .output()
+        .map_err(|err| {
+            std::io::Error::new(
+                err.kind(),
+                format!("Unable to run ffprobe for {}: {}", path, err),
+            )
+        })?;
+
+    if !output.status.success() {
+        let message = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("ffprobe failed for {}: {}", path, message),
+        ));
+    }
+
+    let playtime = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let duration = playtime.parse::<f64>();
+    if playtime.is_empty()
+        || duration
+            .as_ref()
+            .map(|value| !value.is_finite() || *value < 0.0)
+            .unwrap_or(true)
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("ffprobe returned an invalid duration for {}", path),
+        ));
+    }
+
+    Ok(playtime)
 }
 
 fn get_image_dims(x: &String) -> (u32, u32) {

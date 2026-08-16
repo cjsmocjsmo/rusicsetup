@@ -96,7 +96,8 @@ pub fn create_music_table() -> Result<()> {
             extension TEXT NOT NULL,
             idx TEXT NOT NULL,
             page TEXT NOT NULL,
-            fsizeresults TEXT NOT NULL
+            fsizeresults TEXT NOT NULL,
+            playtime TEXT NOT NULL
         )",
         (),
     )?;

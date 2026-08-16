@@ -308,9 +308,10 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                             extension,
                             idx,
                             page,
-                            fsizeresults
+                            fsizeresults,
+                            playtime
                         )
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                 )
                 .expect("unable to prepare music insert");
 
@@ -400,6 +401,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                         &mfi.idx,
                         &mfi.page,
                         &mfi.fsizeresults,
+                        &mfi.playtime,
                     ))
                     .unwrap_or_else(|err| {
                         panic!(

@@ -62,9 +62,10 @@ pub fn post_music_to_db(music_info: types::MusicInfo) -> Result<()> {
                 extension,
                 idx,
                 page,
-                fsizeresults
+                fsizeresults,
+                playtime
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         (
             &music_info.rusicid,
             &music_info.imgurl,
@@ -79,6 +80,7 @@ pub fn post_music_to_db(music_info: types::MusicInfo) -> Result<()> {
             &music_info.idx,
             &music_info.page,
             &music_info.fsizeresults,
+            &music_info.playtime,
         ),
     )?;
 
