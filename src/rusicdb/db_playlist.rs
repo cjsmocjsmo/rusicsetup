@@ -1,42 +1,48 @@
-use crate::types;
-use rusqlite::Connection;
-use std::env;
+use crate::rusicdb::db_main::open_conn;
+use rusqlite::Result;
 
-pub fn get_mylikes_oldsongs() -> (String, String) {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path.clone()).expect("unable to open db file");
-    let mylikes = "mylikes".to_string();
+pub fn get_mylikes_songs() -> Vec<String> {
+    let conn = open_conn().expect("unable to open db file");
     let mut stmt = conn
-        .prepare("SELECT * FROM playlists WHERE name = ?1")
+        .prepare(
+            "SELECT ps.song_rusicid
+               FROM playlist_songs ps
+               JOIN playlists p ON p.id = ps.playlist_id
+              WHERE p.name = 'mylikes'
+              ORDER BY ps.position",
+        )
         .unwrap();
-    let mut rows = stmt.query(&[&mylikes]).expect("Unable to query db");
+    let rows = stmt.query_map((), |row| row.get(0)).unwrap();
 
-    let mut oldsongs = String::new();
-    let mut oldnumsongs = String::new();
-    while let Some(row) = rows.next().unwrap() {
-        let oldplinfo = types::PlayList {
-            rusicid: row.get(1).unwrap(),
-            name: row.get(2).unwrap(),
-            songs: row.get(3).unwrap(),
-            numsongs: row.get(4).unwrap(),
-        };
-        oldsongs = oldplinfo.songs;
-        oldnumsongs = oldplinfo.numsongs;
+    rows.filter_map(std::result::Result::ok).collect()
+}
+
+pub fn set_mylikes_songs(rusicid: String, songs: Vec<String>) -> Result<()> {
+    let conn = open_conn()?;
+
+    conn.execute(
+        "INSERT INTO playlists (rusicid, name) VALUES (?1, 'mylikes')
+         ON CONFLICT(name) DO NOTHING",
+        (&rusicid,),
+    )?;
+
+    let playlist_id: i64 = conn.query_row(
+        "SELECT id FROM playlists WHERE name = 'mylikes'",
+        (),
+        |row| row.get(0),
+    )?;
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM playlist_songs WHERE playlist_id = ?1",
+        (&playlist_id,),
+    )?;
+    for (position, song_rusicid) in songs.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO playlist_songs (playlist_id, song_rusicid, position) VALUES (?1, ?2, ?3)",
+            (&playlist_id, song_rusicid, &(position as i64)),
+        )?;
     }
-
-    (oldsongs, oldnumsongs)
+    tx.commit()
 }
 
-pub fn update_mylikes(songs: String, numsongs: String, name: String) -> bool {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path.clone()).expect("unable to open db file");
-
-    let mut stmt = conn
-        .prepare("UPDATE playlists SET songs = ?1, numsongs = ?2 WHERE name = ?3")
-        .unwrap();
-    let _rows = stmt
-        .execute(&[&songs, &numsongs, &name])
-        .expect("Unable to query db");
-
-    true
-}

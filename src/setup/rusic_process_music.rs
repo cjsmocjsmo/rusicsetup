@@ -12,7 +12,7 @@ pub fn process_audio_file(
     x: String,
     index: String,
     page: String,
-) -> Option<(types::MusicInfo, types::FirstLetterInfo)> {
+) -> Option<(types::Artist, types::Album, types::Song)> {
     let fu = RusicUtils { apath: x.clone() };
     let rusic_id = rusic_utils::get_md5(x.clone());
     let art_alb = RusicUtils::split_artist_album(&fu);
@@ -31,38 +31,37 @@ pub fn process_audio_file(
     let img_url = create_thumb_path(art_alb.0.clone(), art_alb.1.clone());
     let play_path = RusicUtils::create_audio_play_path(&fu);
 
-    let music_info = types::MusicInfo {
-        rusicid: rusic_id.clone(),
-        imgurl: img_url.clone(),
-        playpath: play_path.clone(),
-        artist: tag_artist.clone(),
+    let artist = types::Artist {
         artistid: artist_id.clone(),
-        album: tag_album.clone(),
+        name: tag_artist.clone(),
+        first_letter: tag_artist.chars().next().unwrap_or('_').to_string(),
+    };
+
+    let album = types::Album {
         albumid: album_id.clone(),
-        song: tag_song.clone(),
+        artistid: artist_id,
+        name: tag_album.clone(),
+        first_letter: tag_album.chars().next().unwrap_or('_').to_string(),
+    };
+
+    let song = types::Song {
+        rusicid: rusic_id,
+        albumid: album_id,
+        title: tag_song.clone(),
+        imgurl: img_url,
+        playpath: play_path,
         fullpath: x.clone(),
         extension: RusicUtils::split_ext(&fu),
-        idx: index.clone(),
-        page: page.clone(),
+        idx: index,
+        page,
         fsizeresults: RusicUtils::get_file_size(&fu).to_string(),
+        first_letter: tag_song.chars().next().unwrap_or('_').to_string(),
     };
 
-    let first_letter_info = types::FirstLetterInfo {
-        rusicid: rusic_id,
-        artist: tag_artist.clone(),
-        album: tag_album.clone(),
-        artistid: artist_id,
-        albumid: album_id,
-        song: tag_song.clone(),
-        artist_first_letter: tag_artist.chars().next().unwrap_or('_').to_string(),
-        album_first_letter: tag_album.chars().next().unwrap_or('_').to_string(),
-        song_first_letter: tag_song.chars().next().unwrap_or('_').to_string(),
-    };
-
-    Some((music_info, first_letter_info))
+    Some((artist, album, song))
 }
 
-// fn write_music_nfos_to_file(mfo: types::MusicInfo, index: String) {
+// fn write_music_nfos_to_file(mfo: types::Song, index: String) {
 //     let mus_info = serde_json::to_string(&mfo).unwrap();
 //     let rusic_music_metadata_path = env::var("RUSIC_NFOS").expect("$RUSIC_NFOS is not set");
 //     let a = format!("{}/", rusic_music_metadata_path.as_str());

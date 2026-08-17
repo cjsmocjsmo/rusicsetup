@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use crate::rusicdb::db_main;
-use crate::types;
 use filesize::PathExt;
 use image::{self};
 use lofty::file::TaggedFileExt;
@@ -214,34 +212,6 @@ pub fn is_db_check_file_present() -> bool {
     path.exists()
 }
 
-pub fn gen_first_letter_db(media: String) -> Result<()> {
-    let rus = RusicUtils {
-        apath: media.clone(),
-    };
-    let tags = match rus.get_tag_info() {
-        Ok(tags) => tags,
-        Err(err) => {
-            eprintln!("Skipping first-letter generation for {}: {}", media, err);
-            return Ok(());
-        }
-    };
-
-    let first_letter_info = types::FirstLetterInfo {
-        rusicid: get_md5(media.clone()),
-        artist: tags.0.clone(),
-        album: tags.1.clone(),
-        song: tags.2.clone(),
-        artistid: get_md5(tags.0.clone()),
-        albumid: get_md5(tags.1.clone()),
-        artist_first_letter: rus.artist_starts_with(),
-        album_first_letter: rus.album_starts_with(),
-        song_first_letter: rus.song_starts_with(),
-    };
-    db_main::post_first_letter(first_letter_info)?;
-
-    Ok(())
-}
-
 pub fn convert_bytes(mut bytes: usize) -> String {
     let units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     let mut i = 0;
@@ -332,42 +302,4 @@ fn log_tag_issue(apath: &str, message: &str) {
     }
 }
 
-pub fn artist_album_count_by_alpha() {
-    let mut alphabet = Vec::new();
-    alphabet.push("A");
-    alphabet.push("B");
-    alphabet.push("C");
-    alphabet.push("D");
-    alphabet.push("E");
-    alphabet.push("F");
-    alphabet.push("G");
-    alphabet.push("H");
-    alphabet.push("I");
-    alphabet.push("J");
-    alphabet.push("K");
-    alphabet.push("L");
-    alphabet.push("M");
-    alphabet.push("N");
-    alphabet.push("O");
-    alphabet.push("P");
-    alphabet.push("Q");
-    alphabet.push("R");
-    alphabet.push("S");
-    alphabet.push("T");
-    alphabet.push("U");
-    alphabet.push("V");
-    alphabet.push("W");
-    alphabet.push("X");
-    alphabet.push("Y");
-    alphabet.push("Z");
 
-    for letter in alphabet.clone() {
-        let _artist_alpha_count = db_main::post_artist_count_by_alpha(letter.to_string());
-    }
-    for letter2 in alphabet.clone() {
-        let _album_alpha_count = db_main::post_album_count_by_alpha(letter2.to_string());
-    }
-    for letter3 in alphabet.clone() {
-        let _song_alpha_count = db_main::post_song_count_by_alpha(letter3.to_string());
-    }
-}

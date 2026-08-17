@@ -1,18 +1,20 @@
-use rusqlite::{Connection, Result};
-use std::env;
+use crate::rusicdb::db_main::open_conn;
+use crate::types;
+use rusqlite::Result;
 
-pub fn write_alb_albid_to_db(rusid: String, imageurl: String, albid: String) -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path).unwrap();
+pub fn upsert_album(album: &types::Album) -> Result<()> {
+    let conn = open_conn()?;
 
     conn.execute(
-        "INSERT INTO albalbid (
-                rusicid,
-                imageurl,
-                albumid
+        "INSERT INTO albums (
+                albumid,
+                artistid,
+                name,
+                first_letter
             )
-            VALUES (?1, ?2, ?3)",
-        (&rusid, &imageurl, &albid),
+            VALUES (?1, ?2, ?3, ?4)
+            ON CONFLICT(albumid) DO NOTHING",
+        (&album.albumid, &album.artistid, &album.name, &album.first_letter),
     )?;
 
     Ok(())

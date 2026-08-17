@@ -14,8 +14,6 @@ use crate::types;
 use rusqlite::Connection;
 use std::path::Path;
 
-pub mod rusic_album;
-pub mod rusic_artist;
 pub mod rusic_process_music;
 pub mod rusic_process_music_images;
 pub mod rusic_utils;
@@ -221,40 +219,18 @@ pub fn setup() -> String {
     println!("{}", audio_count);
     println!("{}", img_count);
 
-    //NEED ARTIST COUNT FOR ALPHA
-    //NEED ALBUM COUNT FOR ALPHA
-
     let _rmt = run_music_threads(media_lists.0.clone());
-
-    let _gen_artist_count_by_alpha = rusic_utils::artist_album_count_by_alpha();
 
     let human_total_size = rusic_utils::media_total_size(media_lists.0.clone());
 
     let _rmit = run_music_img_threads(media_lists.1.clone());
 
-    let arids = rusic_artist::unique_artistids();
-    let aalbs = rusic_artist::albumids_for_artistid(arids.clone());
-    let _insert_aalbs = rusic_artist::write_albums_for_artist_to_db(aalbs.clone()).unwrap();
-
-    let alids = rusic_album::unique_albumids();
-    let sids = rusic_album::songids_for_albumid(alids.clone());
-    let insert_sids_result = rusicdb::db_main::post_songs_for_album_to_db(sids.clone());
-    let _ = match insert_sids_result {
-        Ok(_) => String::from("Exit 0 insert_sids"),
-        Err(_) => String::from("Exit 1 insert_sids"),
-    };
     let _gen_db_check_file = rusic_utils::gen_db_check_file();
 
-    let stats = types::Stats {
-        artistcount: "0".to_string(),
-        albumcount: "0".to_string(),
-        songcount: audio_count.to_string(),
-        imagecount: img_count.to_string(),
-    };
-    let insert_stats_results = rusicdb::db_main::post_stats_to_db(stats.clone());
-    let _ = match insert_stats_results {
-        Ok(_) => String::from("Exit 0 insert_stats"),
-        Err(_) => String::from("Exit 1 insert_stats"),
+    let stats_result = rusicdb::db_main::compute_stats(img_count as i64);
+    let _ = match stats_result {
+        Ok(stats) => rusicdb::db_main::post_stats_to_db(stats),
+        Err(_) => Ok(()),
     };
 
     println!("\n\nFound {:?} USB devices", usb_drives.len());
@@ -293,65 +269,40 @@ fn run_music_threads(alist: Vec<String>) -> bool {
             .expect("unable to start sqlite transaction");
         let mut wrote_rows = false;
         {
-            let mut music_stmt = tx
+            let mut artist_stmt = tx
                 .prepare(
-                    "INSERT OR IGNORE INTO music (
+                    "INSERT INTO artists (artistid, name, first_letter)
+                        VALUES (?1, ?2, ?3)
+                        ON CONFLICT(artistid) DO NOTHING",
+                )
+                .expect("unable to prepare artists insert");
+
+            let mut album_stmt = tx
+                .prepare(
+                    "INSERT INTO albums (albumid, artistid, name, first_letter)
+                        VALUES (?1, ?2, ?3, ?4)
+                        ON CONFLICT(albumid) DO NOTHING",
+                )
+                .expect("unable to prepare albums insert");
+
+            let mut song_stmt = tx
+                .prepare(
+                    "INSERT OR IGNORE INTO songs (
                             rusicid,
+                            albumid,
+                            title,
                             imgurl,
                             playpath,
-                            artist,
-                            artistid,
-                            album,
-                            albumid,
-                            song,
                             fullpath,
                             extension,
                             idx,
                             page,
-                            fsizeresults
+                            fsizeresults,
+                            first_letter
                         )
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 )
-                .expect("unable to prepare music insert");
-
-            let mut startswith_stmt = tx
-                .prepare(
-                    "INSERT OR IGNORE INTO startswith (
-                            rusicid,
-                            artist,
-                            album,
-                            artistid,
-                            albumid,
-                            song,
-                            artist_first_letter,
-                            album_first_letter,
-                            song_first_letter
-                        )
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                )
-                .expect("unable to prepare startswith insert");
-
-            let mut artartid_stmt = tx
-                .prepare(
-                    "INSERT OR IGNORE INTO artartid (
-                            rusicid,
-                            artist,
-                            artistid
-                        )
-                        VALUES (?1, ?2, ?3)",
-                )
-                .expect("unable to prepare artartid insert");
-
-            let mut albalbid_stmt = tx
-                .prepare(
-                    "INSERT OR IGNORE INTO albalbid (
-                            rusicid,
-                            imageurl,
-                            albumid
-                        )
-                        VALUES (?1, ?2, ?3)",
-                )
-                .expect("unable to prepare albalbid insert");
+                .expect("unable to prepare songs insert");
 
             for _ in 0..batch_size {
                 let Some(a) = songs.next() else {
@@ -375,7 +326,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                     health_check_interval,
                 );
 
-                let Some((mfi, first_letter_info)) =
+                let Some((artist, album, song)) =
                     crate::setup::rusic_process_music::process_audio_file(
                         a.clone(),
                         index.to_string(),
@@ -385,58 +336,46 @@ fn run_music_threads(alist: Vec<String>) -> bool {
                     continue;
                 };
 
-                let inserted_music_rows = music_stmt
+                artist_stmt
+                    .execute((&artist.artistid, &artist.name, &artist.first_letter))
+                    .expect("unable to insert artist row");
+
+                album_stmt
                     .execute((
-                        &mfi.rusicid,
-                        &mfi.imgurl,
-                        &mfi.playpath,
-                        &mfi.artist,
-                        &mfi.artistid,
-                        &mfi.album,
-                        &mfi.albumid,
-                        &mfi.song,
-                        &mfi.fullpath,
-                        &mfi.extension,
-                        &mfi.idx,
-                        &mfi.page,
-                        &mfi.fsizeresults,
+                        &album.albumid,
+                        &album.artistid,
+                        &album.name,
+                        &album.first_letter,
+                    ))
+                    .expect("unable to insert album row");
+
+                let inserted_song_rows = song_stmt
+                    .execute((
+                        &song.rusicid,
+                        &song.albumid,
+                        &song.title,
+                        &song.imgurl,
+                        &song.playpath,
+                        &song.fullpath,
+                        &song.extension,
+                        &song.idx,
+                        &song.page,
+                        &song.fsizeresults,
+                        &song.first_letter,
                     ))
                     .unwrap_or_else(|err| {
                         panic!(
-                            "unable to insert music row for {} ({}) with rusicid {}: {}",
-                            mfi.fullpath, mfi.song, mfi.rusicid, err
+                            "unable to insert song row for {} ({}) with rusicid {}: {}",
+                            song.fullpath, song.title, song.rusicid, err
                         )
                     });
 
-                if inserted_music_rows == 0 {
+                if inserted_song_rows == 0 {
                     eprintln!(
-                        "Skipping duplicate music row for {} with rusicid {}",
-                        mfi.fullpath, mfi.rusicid
+                        "Skipping duplicate song row for {} with rusicid {}",
+                        song.fullpath, song.rusicid
                     );
-                    continue;
                 }
-
-                startswith_stmt
-                    .execute((
-                        &first_letter_info.rusicid,
-                        &first_letter_info.artist,
-                        &first_letter_info.album,
-                        &first_letter_info.artistid,
-                        &first_letter_info.albumid,
-                        &first_letter_info.song,
-                        &first_letter_info.artist_first_letter,
-                        &first_letter_info.album_first_letter,
-                        &first_letter_info.song_first_letter,
-                    ))
-                    .expect("unable to insert startswith row");
-
-                artartid_stmt
-                    .execute((&mfi.rusicid, &mfi.artist, &mfi.artistid))
-                    .expect("unable to insert artartid row");
-
-                albalbid_stmt
-                    .execute((&mfi.rusicid, &mfi.imgurl, &mfi.albumid))
-                    .expect("unable to insert albalbid row");
             }
         }
 
@@ -451,7 +390,7 @@ fn run_music_threads(alist: Vec<String>) -> bool {
 
 fn run_music_img_threads(alist: Vec<String>) -> bool {
     let pool = ThreadPool::new(num_cpus::get());
-    let (tx, rx) = channel::<Option<types::MusicImageInfo>>();
+    let (tx, rx) = channel::<Option<types::AlbumImage>>();
 
     let total_images = alist.len();
     let mut index: i32 = 0;
@@ -521,16 +460,12 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
         let mut wrote_rows = false;
 
         {
-            let mut music_img_stmt = tx
+            let mut album_image_stmt = tx
                 .prepare(
-                    "INSERT OR IGNORE INTO music_images (
-                            rusicid,
+                    "INSERT OR IGNORE INTO album_images (
+                            albumid,
                             width,
                             height,
-                            artist,
-                            artistid,
-                            album,
-                            albumid,
                             filesize,
                             fullpath,
                             thumbpath,
@@ -538,9 +473,9 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
                             page,
                             httpthumbpath
                         )
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 )
-                .expect("unable to prepare music_images insert");
+                .expect("unable to prepare album_images insert");
 
             for _ in 0..img_batch_size {
                 let Some(img_info) = img_infos.next() else {
@@ -548,15 +483,11 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
                 };
                 wrote_rows = true;
 
-                music_img_stmt
+                album_image_stmt
                     .execute((
-                        &img_info.rusicid,
+                        &img_info.albumid,
                         &img_info.width,
                         &img_info.height,
-                        &img_info.artist,
-                        &img_info.artistid,
-                        &img_info.album,
-                        &img_info.albumid,
                         &img_info.filesize,
                         &img_info.fullpath,
                         &img_info.thumbpath,
@@ -564,7 +495,7 @@ fn run_music_img_threads(alist: Vec<String>) -> bool {
                         &img_info.page,
                         &img_info.httpthumbpath,
                     ))
-                    .expect("unable to insert music_images row");
+                    .expect("unable to insert album_images row");
             }
         }
 

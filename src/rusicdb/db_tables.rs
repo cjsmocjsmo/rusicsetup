@@ -1,71 +1,97 @@
-use rusqlite::{Connection, Result};
-use std::env;
+use crate::rusicdb::db_main::open_conn;
+use rusqlite::Result;
 
 pub fn create_tables() {
-    let _csfat = create_songs_for_album_table().expect("Unable to create songs for album table");
-    let _cafat =
-        create_albums_for_artist_table().expect("Unable to create albums for artist table");
-    let _cmit = create_music_images_table().expect("Unable to create music images table");
-    let _cmt = create_music_table().expect("Unable to create music table");
-    let _caswt = create_startswith_table().expect("Unable to create artiststartswith table");
-    let _caait = create_artartid_table().expect("Unable to create artartid table");
-    let _caalbit = create_albalbid_table().expect("Unable to create albalbid table");
-    let _caartc = create_artist_count().expect("Unable to create artist count table");
-    let _caalbc = create_album_count().expect("Unable to create album count table");
-    let _casongc = create_song_count().expect("Unable to create song count table");
-    let _cpl = create_playlist().expect("Unable to create playlist table");
-    let _cstats = create_stats().expect("Unable to create stats table");
+    let _cat = create_artists_table().expect("Unable to create artists table");
+    let _calt = create_albums_table().expect("Unable to create albums table");
+    let _cst = create_songs_table().expect("Unable to create songs table");
+    let _cait = create_album_images_table().expect("Unable to create album_images table");
+    let _cpl = create_playlists_table().expect("Unable to create playlists table");
+    let _cpls = create_playlist_songs_table().expect("Unable to create playlist_songs table");
+    let _cstats = create_stats_table().expect("Unable to create stats table");
 }
 
-pub fn create_songs_for_album_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-
+pub fn create_artists_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS songsforalbum (
-            id INTEGER PRIMARY KEY,
-            page INTEGER NOT NULL,
-            albumid TEXT NOT NULL,
-            songs TEXT NOT NULL
+        "CREATE TABLE IF NOT EXISTS artists (
+            artistid TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            first_letter TEXT NOT NULL
         )",
+        (),
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_artists_first_letter ON artists(first_letter)",
         (),
     )?;
 
     Ok(())
 }
 
-pub fn create_albums_for_artist_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
+pub fn create_albums_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS albumsforartist (
-            id INTEGER PRIMARY KEY,
-            page INTEGER NOT NULL,
-            artistid TEXT NOT NULL,
-            albums TEXT NOT NULL
+        "CREATE TABLE IF NOT EXISTS albums (
+            albumid TEXT PRIMARY KEY,
+            artistid TEXT NOT NULL REFERENCES artists(artistid) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            first_letter TEXT NOT NULL
         )",
+        (),
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_albums_artistid ON albums(artistid)",
+        (),
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_albums_first_letter ON albums(first_letter)",
         (),
     )?;
 
     Ok(())
 }
 
-pub fn create_music_images_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-
+pub fn create_songs_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS music_images (
+        "CREATE TABLE IF NOT EXISTS songs (
+            rusicid TEXT PRIMARY KEY,
+            albumid TEXT NOT NULL REFERENCES albums(albumid) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            imgurl TEXT NOT NULL,
+            playpath TEXT NOT NULL,
+            fullpath TEXT NOT NULL,
+            extension TEXT NOT NULL,
+            idx TEXT NOT NULL,
+            page TEXT NOT NULL,
+            fsizeresults TEXT NOT NULL,
+            first_letter TEXT NOT NULL
+        )",
+        (),
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_songs_albumid ON songs(albumid)",
+        (),
+    )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_songs_first_letter ON songs(first_letter)",
+        (),
+    )?;
+
+    Ok(())
+}
+
+pub fn create_album_images_table() -> Result<()> {
+    let conn = open_conn()?;
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS album_images (
             id INTEGER PRIMARY KEY,
-            rusicid TEXT NOT NULL UNIQUE,
+            albumid TEXT NOT NULL REFERENCES albums(albumid) ON DELETE CASCADE,
             width TEXT NOT NULL,
             height TEXT NOT NULL,
-            artist TEXT NOT NULL,
-            artistid TEXT NOT NULL,
-            album TEXT NOT NULL,
-            albumid TEXT NOT NULL,
             filesize TEXT NOT NULL,
-            fullpath TEXT NOT NULL,
+            fullpath TEXT NOT NULL UNIQUE,
             thumbpath TEXT NOT NULL,
             idx TEXT NOT NULL,
             page TEXT NOT NULL,
@@ -73,30 +99,21 @@ pub fn create_music_images_table() -> Result<()> {
         )",
         (),
     )?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_album_images_albumid ON album_images(albumid)",
+        (),
+    )?;
 
     Ok(())
 }
 
-pub fn create_music_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-
+pub fn create_playlists_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS music (
+        "CREATE TABLE IF NOT EXISTS playlists (
             id INTEGER PRIMARY KEY,
             rusicid TEXT NOT NULL UNIQUE,
-            imgurl TEXT NOT NULL,
-            playpath TEXT NOT NULL,
-            artist TEXT NOT NULL,
-            artistid TEXT NOT NULL,
-            album TEXT NOT NULL,
-            albumid TEXT NOT NULL,
-            song TEXT NOT NULL,
-            fullpath TEXT NOT NULL,
-            extension TEXT NOT NULL,
-            idx TEXT NOT NULL,
-            page TEXT NOT NULL,
-            fsizeresults TEXT NOT NULL
+            name TEXT NOT NULL UNIQUE
         )",
         (),
     )?;
@@ -104,135 +121,34 @@ pub fn create_music_table() -> Result<()> {
     Ok(())
 }
 
-pub fn create_startswith_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
+pub fn create_playlist_songs_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS startswith (
-        id INTEGER PRIMARY KEY,
-        rusicid TEXT NOT NULL UNIQUE,
-        artist TEXT NOT NULL,
-        artistid TEXT NOT NULL,
-        album TEXT NOT NULL,
-        albumid TEXT NOT NULL,
-        song TEXT NOT NULL,
-        artist_first_letter TEXT NOT NULL,
-        album_first_letter TEXT NOT NULL,
-        song_first_letter TEXT NOT NULL
-    )",
+        "CREATE TABLE IF NOT EXISTS playlist_songs (
+            playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+            song_rusicid TEXT NOT NULL REFERENCES songs(rusicid) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            PRIMARY KEY (playlist_id, song_rusicid)
+        )",
         (),
     )?;
 
     Ok(())
 }
 
-pub fn create_artartid_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS artartid (
-        id INTEGER PRIMARY KEY,
-        rusicid TEXT NOT NULL UNIQUE,
-        artist TEXT NOT NULL,
-        artistid TEXT NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_albalbid_table() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS albalbid (
-        id INTEGER PRIMARY KEY,
-        rusicid TEXT NOT NULL UNIQUE,
-        imageurl TEXT NOT NULL,
-        albumid TEXT NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_artist_count() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS artistcount (
-        id INTEGER PRIMARY KEY,
-        alpha TEXT NOT NULL,
-        count INTEGER NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_album_count() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS albumcount (
-        id INTEGER PRIMARY KEY,
-        alpha TEXT NOT NULL,
-        count INTEGER NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_song_count() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS songcount (
-        id INTEGER PRIMARY KEY,
-        alpha TEXT NOT NULL,
-        count INTEGER NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_playlist() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS playlists (
-        id INTEGER PRIMARY KEY,
-        rusicid TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL UNIQUE,
-        songs TEXT NOT NULL,
-        numsongs TEXT NOT NULL
-    )",
-        (),
-    )?;
-
-    Ok(())
-}
-
-pub fn create_stats() -> Result<()> {
-    let db_path = env::var("RUSIC_DB_PATH").expect("RUSIC_DB_PATH not set");
-    let conn = Connection::open(db_path)?;
+pub fn create_stats_table() -> Result<()> {
+    let conn = open_conn()?;
     conn.execute(
         "CREATE TABLE IF NOT EXISTS stats (
-        id INTEGER PRIMARY KEY,
-        artistcount TEXT NOT NULL,
-        albumcount TEXT NOT NULL,
-        songcount TEXT NOT NULL,
-        imagecount TEXT NOT NULL
-    )",
+            id INTEGER PRIMARY KEY,
+            artistcount INTEGER NOT NULL,
+            albumcount INTEGER NOT NULL,
+            songcount INTEGER NOT NULL,
+            imagecount INTEGER NOT NULL
+        )",
         (),
     )?;
 
     Ok(())
 }
+

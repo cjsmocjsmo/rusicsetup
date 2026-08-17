@@ -13,7 +13,7 @@ use std::path::Path;
 use webp::*;
 
 //NEED TO PROCESS FOR CONVERT PNG GIF WEBP TO JPG
-pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::MusicImageInfo> {
+pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::AlbumImage> {
     let mut needs_to_be_processed = Vec::new();
     if x.ends_with("webp") {
         println!(".webp found converting to jpg: {:?}", x);
@@ -40,7 +40,6 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::
     let foo2 = RusicUtils {
         apath: media.clone(),
     };
-    let id = rusic_utils::get_md5(x.clone());
     let dims = RusicUtils::get_dims(&foo2);
     let artalb = RusicUtils::split_artist_album(&foo2);
     let artist1 = artalb.0;
@@ -56,14 +55,10 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::
         let thumb_path = tpath.0;
         let http_thumb_path = tpath.1;
 
-        let music_img_info = types::MusicImageInfo {
-            rusicid: id,
+        let album_image = types::AlbumImage {
+            albumid: rusic_utils::get_md5(album1.clone()),
             width: width_r,
             height: height_r,
-            artist: artist1.clone(),
-            artistid: rusic_utils::get_md5(artist1.clone()),
-            album: album1.clone(),
-            albumid: rusic_utils::get_md5(album1.clone()),
             filesize: fsize_results,
             fullpath: full_path,
             thumbpath: thumb_path,
@@ -71,7 +66,7 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::
             page: pageg.to_string(),
             httpthumbpath: http_thumb_path,
         };
-        return Some(music_img_info);
+        return Some(album_image);
     }
 
     None
