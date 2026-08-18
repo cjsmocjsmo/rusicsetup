@@ -242,9 +242,6 @@ pub fn setup() -> String {
 
 fn run_music_threads(alist: Vec<String>) -> bool {
     let total_songs = alist.len();
-    let mut index = 0;
-    let mut page = 1;
-    let mut page_count = 0;
     let started_at = Instant::now();
     let mut last_report = started_at;
     let health_check_interval = health_check_interval();
@@ -261,131 +258,169 @@ fn run_music_threads(alist: Vec<String>) -> bool {
     let conn = Connection::open(db_path).expect("unable to open db file");
     conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")
         .expect("unable to configure sqlite pragmas");
-    let mut songs = alist.into_iter();
 
-    loop {
-        let tx = conn
-            .unchecked_transaction()
-            .expect("unable to start sqlite transaction");
-        let mut wrote_rows = false;
-        {
-            let mut artist_stmt = tx
-                .prepare(
-                    "INSERT INTO artists (artistid, name, first_letter)
-                        VALUES (?1, ?2, ?3)
-                        ON CONFLICT(artistid) DO NOTHING",
-                )
-                .expect("unable to prepare artists insert");
+    // Create thread pool for parallel audio file tag reading
+    let pool = ThreadPool::new(num_cpus::get());
+    let (tx, rx) = channel::<(usize, Option<(types::Artist, types::Album, types::Song)>)>();
 
-            let mut album_stmt = tx
-                .prepare(
-                    "INSERT INTO albums (albumid, artistid, name, first_letter)
-                        VALUES (?1, ?2, ?3, ?4)
-                        ON CONFLICT(albumid) DO NOTHING",
-                )
-                .expect("unable to prepare albums insert");
+    // Send all files to thread pool with their indices
+    for (file_index, audio_file) in alist.into_iter().enumerate() {
+        let tx = tx.clone();
+        pool.execute(move || {
+            let result = crate::setup::rusic_process_music::process_audio_file(
+                audio_file.clone(),
+                (file_index + 1).to_string(),
+                "0".to_string(), // placeholder, will calculate after sorting
+            );
+            tx.send((file_index, result)).expect("Could not send data");
+        });
+    }
 
-            let mut song_stmt = tx
-                .prepare(
-                    "INSERT OR IGNORE INTO songs (
-                            rusicid,
-                            albumid,
-                            title,
-                            imgurl,
-                            playpath,
-                            fullpath,
-                            extension,
-                            idx,
-                            page,
-                            fsizeresults,
-                            first_letter
-                        )
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                )
-                .expect("unable to prepare songs insert");
+    drop(tx);
 
-            for _ in 0..batch_size {
-                let Some(a) = songs.next() else {
-                    break;
-                };
-                wrote_rows = true;
+    // Collect results from channel and rebuild in order
+    let mut results: Vec<(usize, Option<(types::Artist, types::Album, types::Song)>)> =
+        rx.iter().collect();
+    results.sort_by_key(|r| r.0);
 
-                index += 1;
-                if page_count < offset {
-                    page_count += 1;
-                } else {
-                    page_count = 1;
-                    page += 1;
-                }
-                maybe_print_health_check(
-                    "audio scan",
-                    index,
-                    total_songs,
-                    started_at,
-                    &mut last_report,
-                    health_check_interval,
-                );
+    // Now write to database in batches with correct page numbers
+    let mut index = 0;
+    let mut page = 1;
+    let mut page_count = 0;
+    let mut batch_items = Vec::new();
 
-                let Some((artist, album, song)) =
-                    crate::setup::rusic_process_music::process_audio_file(
-                        a.clone(),
-                        index.to_string(),
-                        page.to_string(),
-                    )
-                else {
-                    continue;
-                };
+    for (_file_index, result_opt) in results {
+        index += 1;
 
-                artist_stmt
-                    .execute((&artist.artistid, &artist.name, &artist.first_letter))
-                    .expect("unable to insert artist row");
-
-                album_stmt
-                    .execute((
-                        &album.albumid,
-                        &album.artistid,
-                        &album.name,
-                        &album.first_letter,
-                    ))
-                    .expect("unable to insert album row");
-
-                let inserted_song_rows = song_stmt
-                    .execute((
-                        &song.rusicid,
-                        &song.albumid,
-                        &song.title,
-                        &song.imgurl,
-                        &song.playpath,
-                        &song.fullpath,
-                        &song.extension,
-                        &song.idx,
-                        &song.page,
-                        &song.fsizeresults,
-                        &song.first_letter,
-                    ))
-                    .unwrap_or_else(|err| {
-                        panic!(
-                            "unable to insert song row for {} ({}) with rusicid {}: {}",
-                            song.fullpath, song.title, song.rusicid, err
-                        )
-                    });
-
-                if inserted_song_rows == 0 {
-                    eprintln!(
-                        "Skipping duplicate song row for {} with rusicid {}",
-                        song.fullpath, song.rusicid
-                    );
-                }
-            }
+        if page_count < offset as usize {
+            page_count += 1;
+        } else {
+            page_count = 1;
+            page += 1;
         }
 
-        tx.commit().expect("unable to commit sqlite transaction");
-        if !wrote_rows {
-            break;
+        maybe_print_health_check(
+            "audio scan",
+            index,
+            total_songs,
+            started_at,
+            &mut last_report,
+            health_check_interval,
+        );
+
+        if let Some((artist, album, mut song)) = result_opt {
+            // Update song index and page now that we know the correct values
+            song.idx = index.to_string();
+            song.page = page.to_string();
+            batch_items.push((artist, album, song));
+
+            if batch_items.len() >= batch_size {
+                write_songs_batch_to_db(&conn, &batch_items);
+                batch_items.clear();
+            }
         }
     }
 
+    // Write any remaining items
+    if !batch_items.is_empty() {
+        write_songs_batch_to_db(&conn, &batch_items);
+    }
+
     true
+}
+
+fn write_songs_batch_to_db(
+    conn: &Connection,
+    batch: &[(types::Artist, types::Album, types::Song)],
+) {
+    if batch.is_empty() {
+        return;
+    }
+
+    let tx = conn
+        .unchecked_transaction()
+        .expect("unable to start sqlite transaction");
+    {
+        let mut artist_stmt = tx
+            .prepare(
+                "INSERT INTO artists (artistid, name, first_letter)
+                    VALUES (?1, ?2, ?3)
+                    ON CONFLICT(artistid) DO NOTHING",
+            )
+            .expect("unable to prepare artists insert");
+
+        let mut album_stmt = tx
+            .prepare(
+                "INSERT INTO albums (albumid, artistid, name, first_letter)
+                    VALUES (?1, ?2, ?3, ?4)
+                    ON CONFLICT(albumid) DO NOTHING",
+            )
+            .expect("unable to prepare albums insert");
+
+        let mut song_stmt = tx
+            .prepare(
+                "INSERT OR IGNORE INTO songs (
+                        rusicid,
+                        albumid,
+                        title,
+                        imgurl,
+                        playpath,
+                        fullpath,
+                        extension,
+                        idx,
+                        page,
+                        fsizeresults,
+                        first_letter
+                    )
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            )
+            .expect("unable to prepare songs insert");
+
+        for (artist, album, song) in batch {
+            artist_stmt
+                .execute((&artist.artistid, &artist.name, &artist.first_letter))
+                .expect("unable to insert artist row");
+
+            album_stmt
+                .execute((
+                    &album.albumid,
+                    &album.artistid,
+                    &album.name,
+                    &album.first_letter,
+                ))
+                .expect("unable to insert album row");
+
+            let inserted_song_rows = song_stmt
+                .execute((
+                    &song.rusicid,
+                    &song.albumid,
+                    &song.title,
+                    &song.imgurl,
+                    &song.playpath,
+                    &song.fullpath,
+                    &song.extension,
+                    &song.idx,
+                    &song.page,
+                    &song.fsizeresults,
+                    &song.first_letter,
+                ))
+                .unwrap_or_else(|err| {
+                    panic!(
+                        "unable to insert song row for {} ({}) with rusicid {}: {}",
+                        song.fullpath, song.title, song.rusicid, err
+                    )
+                });
+
+            if inserted_song_rows == 0 {
+                eprintln!(
+                    "Skipping duplicate song row for {} with rusicid {}",
+                    song.fullpath, song.rusicid
+                );
+            }
+        }
+    }
+
+    tx.commit().expect("unable to commit sqlite transaction");
 }
 
 fn run_music_img_threads(alist: Vec<String>) -> bool {
