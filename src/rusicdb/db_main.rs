@@ -75,9 +75,10 @@ pub fn post_song_to_db(song: &types::Song) -> Result<usize> {
                 idx,
                 page,
                 fsizeresults,
-                first_letter
+                first_letter,
+                duration
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         (
             &song.rusicid,
             &song.albumid,
@@ -90,6 +91,7 @@ pub fn post_song_to_db(song: &types::Song) -> Result<usize> {
             &song.page,
             &song.fsizeresults,
             &song.first_letter,
+            &song.duration,
         ),
     )
 }

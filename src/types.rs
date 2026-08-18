@@ -32,6 +32,7 @@ pub struct Song {
     pub page: String,
     pub fsizeresults: String,
     pub first_letter: String,
+    pub duration: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

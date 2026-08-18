@@ -26,6 +26,7 @@ pub fn process_audio_file(
     let tag_artist = tag.0.clone();
     let tag_album = tag.1.clone();
     let tag_song = tag.2.clone();
+    let tag_duration = tag.4.clone();
     let artist_id = rusic_utils::get_md5(tag.0.clone());
     let album_id = rusic_utils::get_md5(tag.1.clone());
     let img_url = create_thumb_path(art_alb.0.clone(), art_alb.1.clone());
@@ -56,6 +57,7 @@ pub fn process_audio_file(
         page,
         fsizeresults: RusicUtils::get_file_size(&fu).to_string(),
         first_letter: tag_song.chars().next().unwrap_or('_').to_string(),
+        duration: tag_duration,
     };
 
     Some((artist, album, song))

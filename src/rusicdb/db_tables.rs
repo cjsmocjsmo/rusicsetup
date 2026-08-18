@@ -66,7 +66,8 @@ pub fn create_songs_table() -> Result<()> {
             idx TEXT NOT NULL,
             page TEXT NOT NULL,
             fsizeresults TEXT NOT NULL,
-            first_letter TEXT NOT NULL
+            first_letter TEXT NOT NULL,
+            duration TEXT NOT NULL DEFAULT '0'
         )",
         (),
     )?;
@@ -78,6 +79,11 @@ pub fn create_songs_table() -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_songs_first_letter ON songs(first_letter)",
         (),
     )?;
+    // migrate existing databases created before the duration column existed
+    let _ = conn.execute(
+        "ALTER TABLE songs ADD COLUMN duration TEXT NOT NULL DEFAULT '0'",
+        (),
+    );
 
     Ok(())
 }

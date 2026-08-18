@@ -4,6 +4,7 @@
 
 use filesize::PathExt;
 use image::{self};
+use lofty::file::AudioFile;
 use lofty::file::TaggedFileExt;
 use lofty::prelude::Accessor;
 use lofty::probe::Probe;
@@ -51,11 +52,15 @@ impl RusicUtils {
         (artist_final, album_final)
     }
 
-    pub fn get_tag_info(&self) -> Result<(String, String, String, String), std::io::Error> {
+    pub fn get_tag_info(
+        &self,
+    ) -> Result<(String, String, String, String, String), std::io::Error> {
         let tagged_file = Probe::open(&self.apath)
             .map_err(|e| move_to_needs_work(&self.apath, e.to_string()))?
             .read()
             .map_err(|e| move_to_needs_work(&self.apath, e.to_string()))?;
+
+        let duration = tagged_file.properties().duration().as_secs();
 
         let tag = tagged_file
             .primary_tag()
@@ -78,6 +83,7 @@ impl RusicUtils {
             album.to_string(),
             song.to_string(),
             track.to_string(),
+            duration.to_string(),
         ))
     }
 
