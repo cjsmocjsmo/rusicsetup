@@ -370,9 +370,10 @@ fn write_songs_batch_to_db(
                         idx,
                         page,
                         fsizeresults,
-                        first_letter
+                        first_letter,
+                        duration
                     )
-                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             )
             .expect("unable to prepare songs insert");
 
@@ -403,6 +404,7 @@ fn write_songs_batch_to_db(
                     &song.page,
                     &song.fsizeresults,
                     &song.first_letter,
+                    &song.duration,
                 ))
                 .unwrap_or_else(|err| {
                     panic!(

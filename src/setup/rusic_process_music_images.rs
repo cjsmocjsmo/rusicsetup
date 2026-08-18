@@ -52,6 +52,14 @@ pub fn process_music_images(x: String, index: i32, pageg: i32) -> Option<types::
 
 fn create_music_thumbnail(x: &String, art: String, alb: String) -> Option<(String, String)> {
     let rusic_music_metadata_path = env::var("RUSIC_THUMBS").expect("$RUSIC_THUMBS is not set");
+    // thumbs dir may not exist yet on a fresh install; create it so save() below doesn't silently fail
+    if let Err(err) = std::fs::create_dir_all(&rusic_music_metadata_path) {
+        eprintln!(
+            "Unable to create thumbs directory {}: {}",
+            rusic_music_metadata_path, err
+        );
+        return None;
+    }
     let new_fname = "/".to_string() + art.as_str() + "_-_" + alb.as_str() + ".jpg";
     let ofname = rusic_music_metadata_path + &new_fname;
     let out_fname = ofname.replace(" ", "_");

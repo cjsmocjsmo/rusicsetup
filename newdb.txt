@@ -1,0 +1,246 @@
+RUSIC SQLITE3 DATABASE SCHEMA REFERENCE
+=========================================
+Generated for use by the rusic server project (separate workspace) to know how
+to query the database that rusicsetup builds. This file documents the exact
+schema, data semantics, quirks, and example queries.
+
+CONNECTION NOTES
+----------------
+- DB path comes from env var RUSIC_DB_PATH (rusqlite::Connection::open).
+- rusicsetup always runs `PRAGMA foreign_keys = ON;` on the connection used for
+  writes. The server should do the same if it ever writes/deletes, otherwise
+  ON DELETE CASCADE behavior won't apply.
+- During bulk image writes, rusicsetup sets `PRAGMA journal_mode = WAL;` and
+  `PRAGMA synchronous = NORMAL;`. The DB file may therefore have WAL mode
+  enabled persistently (WAL is a durable file-level setting). The server can
+  read normally with rusqlite/sqlite3 without special handling, but be aware
+  of the `-wal` and `-shm` sidecar files sitting next to the main db file.
+- All primary/foreign keys that look like they should be numeric (artistid,
+  albumid, rusicid) are actually TEXT — they are MD5 hashes (hex strings), NOT
+  integers. Never try to CAST these to INTEGER.
+- Several columns that ARE logically numeric are stored as TEXT (see "TEXT
+  numeric columns" section below). Sort/filter carefully.
+
+TABLES
+------
+
+1) artists
+   CREATE TABLE artists (
+       artistid TEXT PRIMARY KEY,      -- md5(artist name)
+       name TEXT NOT NULL,             -- artist display name (from audio tag)
+       first_letter TEXT NOT NULL      -- first character of name, for A-Z browsing
+   );
+   INDEX idx_artists_first_letter ON artists(first_letter)
+
+2) albums
+   CREATE TABLE albums (
+       albumid TEXT PRIMARY KEY,                                   -- md5(album name)
+       artistid TEXT NOT NULL REFERENCES artists(artistid) ON DELETE CASCADE,
+       name TEXT NOT NULL,             -- album display name (from audio tag)
+       first_letter TEXT NOT NULL      -- first character of name
+   );
+   INDEX idx_albums_artistid ON albums(artistid)
+   INDEX idx_albums_first_letter ON albums(first_letter)
+
+3) songs
+   CREATE TABLE songs (
+       rusicid TEXT PRIMARY KEY,       -- md5(full file path), unique per audio file
+       albumid TEXT NOT NULL REFERENCES albums(albumid) ON DELETE CASCADE,
+       title TEXT NOT NULL,            -- track title (from audio tag)
+       imgurl TEXT NOT NULL,           -- http(s) URL to the album cover thumbnail
+       playpath TEXT NOT NULL,         -- relative/http path used by the server to stream the file
+       fullpath TEXT NOT NULL,         -- absolute filesystem path on the box running rusicsetup
+       extension TEXT NOT NULL,        -- file extension without dot normalization guaranteed (check value)
+       idx TEXT NOT NULL,              -- 1-based ordinal position of this song within the whole scan (TEXT, numeric)
+       page TEXT NOT NULL,             -- pagination bucket number computed during the scan (TEXT, numeric)
+       fsizeresults TEXT NOT NULL,     -- file size in bytes, as string
+       first_letter TEXT NOT NULL,     -- first character of title
+       duration TEXT NOT NULL DEFAULT '0'  -- track duration in seconds, as string (see KNOWN GAP below)
+   );
+   INDEX idx_songs_albumid ON songs(albumid)
+   INDEX idx_songs_first_letter ON songs(first_letter)
+
+   FIXED (2026-08-18): write_songs_batch_to_db in setup.rs now inserts the
+   `duration` column, so songs.duration reflects the real track length (in
+   seconds, as a string) computed from the audio tag in
+   rusic_process_music.rs. Databases created before this fix will still have
+   duration = '0' for existing rows until rusicsetup is re-run against them
+   (re-running is safe/idempotent but will NOT retroactively update existing
+   rows since inserts use ON CONFLICT/INSERT OR IGNORE — you'd need to
+   delete+rescan or run an UPDATE to backfill old rows).
+
+4) album_images
+   CREATE TABLE album_images (
+       id INTEGER PRIMARY KEY,
+       albumid TEXT NOT NULL REFERENCES albums(albumid) ON DELETE CASCADE,
+       width TEXT NOT NULL,            -- pixel width, as string (post-normalization)
+       height TEXT NOT NULL,           -- pixel height, as string (post-normalization)
+       filesize TEXT NOT NULL,         -- original coverart file size in bytes, as string
+       fullpath TEXT NOT NULL UNIQUE,  -- absolute filesystem path to the ORIGINAL coverart image
+       thumbpath TEXT NOT NULL,        -- absolute filesystem path to the generated 200x200 thumbnail (jpg)
+       idx TEXT NOT NULL,              -- ordinal position during image scan (TEXT, numeric)
+       page TEXT NOT NULL,             -- pagination bucket for image scan (TEXT, numeric)
+       httpthumbpath TEXT NOT NULL     -- http(s) URL clients should use to fetch the thumbnail
+   );
+   INDEX idx_album_images_albumid ON album_images(albumid)
+
+   Notes:
+   - Only .jpg coverart is processed (no format conversion happens elsewhere).
+   - An album can have more than one album_images row if multiple coverart
+     files exist for artist/album combos found while walking the filesystem
+     (there is no UNIQUE constraint on albumid, only on fullpath).
+   - songs.imgurl is independently computed (same URL pattern) at song-scan
+     time; it is NOT a foreign key to album_images and may not correspond
+     1:1 to an actual album_images row if coverart scanning found nothing.
+
+5) playlists
+   CREATE TABLE playlists (
+       id INTEGER PRIMARY KEY,
+       rusicid TEXT NOT NULL UNIQUE,   -- external/opaque playlist identifier used by the server/client
+       name TEXT NOT NULL UNIQUE       -- playlist display name (must be unique)
+   );
+
+   Note: rusicsetup currently only exposes post_playlist_to_db() (insert). No
+   setup.rs code path currently calls it in the scan flow shown here — the
+   server is expected to be the primary writer/manager of playlists once the
+   schema exists (rusicsetup just guarantees the table/shape).
+
+6) playlist_songs
+   CREATE TABLE playlist_songs (
+       playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+       song_rusicid TEXT NOT NULL REFERENCES songs(rusicid) ON DELETE CASCADE,
+       position INTEGER NOT NULL,      -- 1-based (or 0-based, server's choice) ordering within the playlist
+       PRIMARY KEY (playlist_id, song_rusicid)
+   );
+
+   Note: a song can only appear once per playlist because (playlist_id,
+   song_rusicid) is the primary key. If you need duplicate tracks in a
+   playlist, this schema needs a surrogate key + a separate UNIQUE
+   (playlist_id, position) — not currently the case.
+
+7) stats
+   CREATE TABLE stats (
+       id INTEGER PRIMARY KEY,
+       artistcount INTEGER NOT NULL,
+       albumcount INTEGER NOT NULL,
+       songcount INTEGER NOT NULL,
+       imagecount INTEGER NOT NULL
+   );
+
+   Populated once per rusicsetup run via post_stats_to_db(). There is no
+   UNIQUE/singleton constraint, so if rusicsetup runs multiple times, you can
+   get multiple rows. Server should query the MOST RECENT row, e.g.:
+     SELECT * FROM stats ORDER BY id DESC LIMIT 1;
+
+TEXT NUMERIC COLUMNS (important for sorting/filtering)
+--------------------------------------------------------
+These columns are stored as TEXT but hold numeric values. Lexicographic
+ordering will produce wrong results once values exceed 9 (e.g. "10" sorts
+before "2"). Cast explicitly when sorting or comparing numerically:
+
+  songs.idx, songs.page, songs.fsizeresults, songs.duration
+  album_images.width, album_images.height, album_images.filesize,
+  album_images.idx, album_images.page
+
+Example correct ordering:
+  SELECT * FROM songs ORDER BY CAST(idx AS INTEGER);
+
+RELATIONSHIPS (ER SUMMARY)
+---------------------------
+artists (1) ──< albums (many)         albums.artistid -> artists.artistid
+albums  (1) ──< songs (many)          songs.albumid  -> albums.albumid
+albums  (1) ──< album_images (many)   album_images.albumid -> albums.albumid
+playlists (1) ──< playlist_songs (many) via playlist_id -> playlists.id
+songs   (1) ──< playlist_songs (many)   via song_rusicid -> songs.rusicid
+
+All foreign keys are ON DELETE CASCADE. Deleting an artist removes its
+albums, which removes their songs and album_images, which removes any
+playlist_songs rows referencing those songs. Deleting a playlist removes its
+playlist_songs rows but leaves songs/albums/artists untouched.
+
+COMMON SERVER QUERIES
+----------------------
+
+-- All artists, alphabetically, for an A-Z index browser
+SELECT artistid, name FROM artists ORDER BY name COLLATE NOCASE;
+
+-- Artists grouped by first_letter (jump-to-letter UI)
+SELECT first_letter, artistid, name FROM artists
+ORDER BY first_letter, name COLLATE NOCASE;
+
+-- Albums for a given artist
+SELECT albumid, name FROM albums
+WHERE artistid = ?1
+ORDER BY name COLLATE NOCASE;
+
+-- Songs for a given album, in original scan order
+SELECT rusicid, title, imgurl, playpath, extension, fsizeresults, duration
+FROM songs
+WHERE albumid = ?1
+ORDER BY CAST(idx AS INTEGER);
+
+-- Full "now playing" style row with artist/album names joined in
+SELECT
+    s.rusicid, s.title, s.playpath, s.imgurl, s.duration,
+    al.name AS album_name, al.albumid,
+    ar.name AS artist_name, ar.artistid
+FROM songs s
+JOIN albums al ON al.albumid = s.albumid
+JOIN artists ar ON ar.artistid = al.artistid
+WHERE s.rusicid = ?1;
+
+-- Cover art thumbnails for an album (may be zero or multiple rows)
+SELECT httpthumbpath, width, height
+FROM album_images
+WHERE albumid = ?1
+ORDER BY CAST(idx AS INTEGER);
+
+-- Search songs by title substring (case-insensitive)
+SELECT rusicid, title, albumid
+FROM songs
+WHERE title LIKE '%' || ?1 || '%' COLLATE NOCASE;
+
+-- Search across artists/albums/songs for a global search box
+SELECT 'artist' AS kind, artistid AS id, name FROM artists WHERE name LIKE '%'||?1||'%'
+UNION ALL
+SELECT 'album' AS kind, albumid AS id, name FROM albums WHERE name LIKE '%'||?1||'%'
+UNION ALL
+SELECT 'song' AS kind, rusicid AS id, title AS name FROM songs WHERE title LIKE '%'||?1||'%';
+
+-- Paginated song browsing using the precomputed page column
+SELECT * FROM songs WHERE page = ?1 ORDER BY CAST(idx AS INTEGER);
+
+-- Create a playlist (server-owned write)
+INSERT INTO playlists (rusicid, name) VALUES (?1, ?2);
+
+-- Add a song to a playlist at a given position
+INSERT INTO playlist_songs (playlist_id, song_rusicid, position)
+VALUES (?1, ?2, ?3);
+
+-- Fetch a playlist's songs in order
+SELECT s.rusicid, s.title, s.playpath, s.imgurl, ps.position
+FROM playlist_songs ps
+JOIN songs s ON s.rusicid = ps.song_rusicid
+WHERE ps.playlist_id = ?1
+ORDER BY ps.position;
+
+-- Reorder/remove: just UPDATE/DELETE playlist_songs rows; ON DELETE CASCADE
+-- means deleting a playlist automatically clears its playlist_songs rows.
+DELETE FROM playlist_songs WHERE playlist_id = ?1 AND song_rusicid = ?2;
+
+-- Latest stats snapshot (rusicsetup may insert more than one row over time)
+SELECT artistcount, albumcount, songcount, imagecount
+FROM stats ORDER BY id DESC LIMIT 1;
+
+WRITE-SAFETY NOTES FOR THE SERVER
+-----------------------------------
+- rusicsetup uses `INSERT ... ON CONFLICT DO NOTHING` / `INSERT OR IGNORE` for
+  artists/albums/songs/album_images so re-running the scan is idempotent. If
+  the server ever inserts into these same tables, mirror that pattern to
+  avoid PK violations killing a request.
+- playlists.name is UNIQUE — inserting a duplicate name will raise a
+  constraint violation; handle that as a normal "name already taken" error,
+  not a crash.
+- Always enable `PRAGMA foreign_keys = ON;` on any connection the server
+  opens, or ON DELETE CASCADE will silently not apply and orphaned rows can
+  accumulate.
