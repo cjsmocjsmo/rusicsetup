@@ -45,7 +45,7 @@ pub fn walk_additional_dir(apath: String) -> (Vec<String>, Vec<String>) {
             if fname.contains("Music") {
                 if has_extension(&fname, SUPPORTED_AUDIO_FORMATS) {
                     musicvec.push(fname.clone());
-                } else if has_extension(&fname, &["jpg", "png", "webp", "jpeg"]) {
+                } else if has_extension(&fname, &["jpg"]) {
                     musicimgvec.push(fname.clone());
                 } else {
                     continue;

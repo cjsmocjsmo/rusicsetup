@@ -24,17 +24,6 @@ pub struct RusicUtils {
 }
 
 impl RusicUtils {
-    pub fn split_base_dir_filename(&self) -> (String, String) {
-        let path = Path::new(&self.apath);
-        let dir_path = path.parent().unwrap();
-        let filename = path.file_name().unwrap();
-
-        (
-            dir_path.to_string_lossy().to_string(),
-            filename.to_string_lossy().to_string(),
-        )
-    }
-
     pub fn split_artist_album(&self) -> (String, String) {
         let path = Path::new(&self.apath);
         let basedir = path.parent().unwrap();
@@ -115,36 +104,6 @@ impl RusicUtils {
 
         dims
     }
-    pub fn artist_starts_with(&self) -> String {
-        match self.get_tag_info() {
-            Ok(tag) => tag.0.chars().next().unwrap_or('_').to_string(),
-            Err(err) => {
-                eprintln!("Unable to read artist tag for {}: {}", self.apath, err);
-                "_".to_string()
-            }
-        }
-    }
-
-    pub fn album_starts_with(&self) -> String {
-        match self.get_tag_info() {
-            Ok(tag) => tag.1.chars().next().unwrap_or('_').to_string(),
-            Err(err) => {
-                eprintln!("Unable to read album tag for {}: {}", self.apath, err);
-                "_".to_string()
-            }
-        }
-    }
-
-    pub fn song_starts_with(&self) -> String {
-        match self.get_tag_info() {
-            Ok(tag) => tag.2.chars().next().unwrap_or('_').to_string(),
-            Err(err) => {
-                eprintln!("Unable to read song tag for {}: {}", self.apath, err);
-                "_".to_string()
-            }
-        }
-    }
-
     pub fn create_audio_play_path(&self) -> String {
         let assend = self
             .apath
@@ -171,13 +130,13 @@ pub fn get_md5(z: String) -> String {
 }
 
 fn get_image_dims(x: &String) -> (u32, u32) {
-    let dims_rs = image::image_dimensions(&x);
-    let dims = match dims_rs {
+    match image::image_dimensions(&x) {
         Ok(d) => d,
-        Err(_) => (0, 0),
-    };
-
-    dims
+        Err(err) => {
+            eprintln!("Unable to read image dimensions for {}: {}", x, err);
+            (0, 0)
+        }
+    }
 }
 
 pub fn normalize_music_image(dims: (u32, u32)) -> (u32, u32) {
@@ -209,13 +168,6 @@ pub fn gen_db_check_file() {
     let db_check_file_path = env::var("RUSIC_DB_CHECK_FILE_PATH").unwrap();
     let mut file = File::create(db_check_file_path).unwrap();
     file.write_all(b"1").unwrap();
-}
-
-pub fn is_db_check_file_present() -> bool {
-    let db_check_file_path = env::var("RUSIC_DB_CHECK_FILE_PATH").unwrap();
-    let path = Path::new(&db_check_file_path);
-
-    path.exists()
 }
 
 pub fn convert_bytes(mut bytes: usize) -> String {
