@@ -75,7 +75,7 @@ pub fn process_audio_file(
 fn create_thumb_path(art: String, alb: String) -> String {
     let myhttpd = env::var("RUSIC_HTTP_ADDR").expect("$RUSIC_HTTP_ADDR is not set");
     let myport = env::var("RUSIC_PORT").expect("$RUSIC_PORT is not set");
-    let npath = myhttpd + &myport + "/thumbs" + &art + "_-_" + &alb + ".jpg";
+    let npath = myhttpd + &myport + "/thumbs/" + &art + "_-_" + &alb + ".jpg";
     let newpath = npath.replace(" ", "_");
     newpath
 }
